@@ -5,6 +5,7 @@ Code for Differential Value Programming (DVP) implementation and example on the 
 - [PyTorch](https://pytorch.org/) >= v1.8
 - [Crocoddyl](https://github.com/loco-3d/crocoddyl) >= v1.8.1
 - Python 3.6
+- [Pinocchio](https://github.com/stack-of-tasks/pinocchio) >= v2.6.3
 
 # How to use it ?
 
