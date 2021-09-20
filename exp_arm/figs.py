@@ -23,14 +23,14 @@ N_h = config['N_h']
 dt = config['dt']
 id_ee = robot.model.getFrameId('contact')
 resultspath = path_utils.results_path()
-path = os.path.join(resultspath, 'trained_models/dvp/Order_1/Horizon_200/eps_19.pth')
+path = os.path.join(resultspath, 'trained_models/dvp/Order_1/Horizon_200/eps_9.pth')
 
 # Load net 
 Net  = torch.load(path)
 DDPS_DATA =[]
 WS = False
 N=10
-EPS_P = 0.3
+EPS_P = 0.15
 # Sample test points
 samples   =   samples_uniform_IK(nb_samples=N, eps_p=EPS_P, eps_v=0.0)
 # Ref for warm start
@@ -43,12 +43,12 @@ for k,x in enumerate(samples):
                                     callbacks=False, 
                                     which_costs=config['WHICH_COSTS'],
                                     dt=dt, N_h=N_h) 
-    ug = pin_utils.get_u_grav(q0, robot)
+    ug = pin_utils.get_u_grav(x[:nq], robot)
     ddp_ref.problem.x0 = x
-    ddp_ref.solve( [x0 for i in range(N_h+1)] , [ug  for i in range(N_h)], maxiter=config['maxiter'], isFeasible=False)
+    ddp_ref.solve( [x for i in range(N_h+1)] , [ug  for i in range(N_h)], maxiter=config['maxiter'], isFeasible=False)
     # Warm start using the croco ref
-    xs_init = [ddp_ref.xs[i] for i in range(N_h+1)]
-    us_init = [ddp_ref.us[i]  for i in range(N_h)]
+    xs_init = [x for i in range(N_h+1)]# [ddp_ref.xs[i] for i in range(N_h+1)]
+    us_init = [ug  for i in range(N_h)] #[ddp_ref.us[i]  for i in range(N_h)]
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
     # Solve for each sample and record
     ddp_data = plot_utils.extract_ddp_data(ddp)
