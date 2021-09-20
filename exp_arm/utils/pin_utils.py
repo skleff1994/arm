@@ -10,37 +10,39 @@ def get_u_grav(q, pin_robot):
     return pin.computeGeneralizedGravity(pin_robot.model, pin_robot.data, q)
 
 # Get EE position
-def get_p(q, pin_robot, id_endeff):
+def get_p(q, model, id_endeff):
     '''
     Returns end-effector positions given q trajectory 
         q         : joint positions
-        robot     : pinocchio wrapper
+        robot     : pinocchio model
         id_endeff : id of EE frame
     '''
     N = np.shape(q)[0]
     p = np.empty((N,3))
+    data = model.createData()
     for i in range(N):
-        pin.forwardKinematics(pin_robot.model, pin_robot.data, q[i])
-        pin.updateFramePlacements(pin_robot.model, pin_robot.data)
-        p[i,:] = pin_robot.data.oMf[id_endeff].translation.T
+        pin.forwardKinematics(model, data, q[i])
+        pin.updateFramePlacements(model, data)
+        p[i,:] = data.oMf[id_endeff].translation.T
     return p
 
 # Get EE velocity
-def get_v(q, dq, pin_robot, id_endeff):
+def get_v(q, dq, model, id_endeff):
     '''
     Returns end-effector velocities given q,dq trajectory 
         q         : joint positions
         dq        : joint velocities
-        pin_robot : pinocchio wrapper
+        model     : pinocchio model
         id_endeff : id of EE frame
     '''
     N = np.shape(q)[0]
     v = np.empty((N,3))
-    jac = np.zeros((6,pin_robot.model.nv))
+    jac = np.zeros((6, model.nv))
+    data = model.createData()
     for i in range(N):
         # Get jacobian
-        pin.computeJointJacobians(pin_robot.model, pin_robot.data, q[i,:])
-        jac = pin.getFrameJacobian(pin_robot.model, pin_robot.data, id_endeff, pin.ReferenceFrame.LOCAL) 
+        pin.computeJointJacobians(model, data, q[i,:])
+        jac = pin.getFrameJacobian(model, data, id_endeff, pin.ReferenceFrame.LOCAL) 
         # Get EE velocity
         v[i,:] = jac.dot(dq[i])[:3]
     return v

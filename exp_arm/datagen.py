@@ -172,14 +172,7 @@ def create_train_data(critic=None,horizon=40,nb_samples=100):
             print(value)
 
             # Record ddp_data
-            ddp_data = {}
-            ddp_data['T'] = ddp.problem.T
-            ddp_data['dt'] = ddp.problem.runningModels[0].dt
-            ddp_data['nq'] = ddp.problem.runningModels[0].state.nq
-            ddp_data['nv'] = ddp.problem.runningModels[0].state.nv
-            ddp_data['nu'] = ddp.problem.runningModels[0].nu
-            ddp_data['xs'] = ddp.xs
-            ddp_data['us'] = ddp.us
+            ddp_data = utils.plot_utils.extract_ddp_data(ddp)
             DDPS.append(ddp_data)
             
         if len(v) == 100:
@@ -191,17 +184,12 @@ def create_train_data(critic=None,horizon=40,nb_samples=100):
     v       =   np.array( v ).reshape(-1,1)
     print(f"Dataset shape: {v.shape}")
 
-    # Plot every 1/10 training data
-    fig, ax = utils.plot_utils.plot_ddp_results(DDPS, robot, 
+    # Plot every 1/10 training data + add references
+    fig, ax = utils.plot_utils.plot_ddp_results(DDPS, 
                                                 which_plots=['x','u','p'], 
                                                 SHOW=False, 
                                                 sampling_plot=10)
-    # Add EE reference pos, vel on plots
-    for i in range(3):
-        ax['p'][i,0].plot(np.linspace(0, horizon*config['dt'], horizon+1), [np.asarray(config['p_des']) [i]]*(horizon+1), 'r-.', label='Desired')
-        ax['p'][i,1].plot(np.linspace(0, horizon*config['dt'], horizon+1), [np.asarray(config['v_des']) [i]]*(horizon+1), 'r-.', label='Desired')
-    handles_x, labels_x = ax['p'][i,0].get_legend_handles_labels()
-    fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+    utils.plot_utils.plot_refs(fig, ax, config)
     # Save figures
     savepath = os.path.join(os.path.abspath(__file__ + "/../../"), "results/figures")
     fig['p'].savefig(os.path.join(savepath,'p_'+str(time.time())+'_.png'), dpi=200)

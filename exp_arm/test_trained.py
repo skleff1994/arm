@@ -23,7 +23,7 @@ nq=robot.model.nq; nv=robot.model.nv; nu=nq; nx=nq+nv
 N_h = config['N_h']
 dt = config['dt']
 id_ee = robot.model.getFrameId('contact')
-
+resultspath = os.path.join(os.path.abspath(__file__ + "/../../"), "results")
 
 def test_trained_single(critic_path, PLOT=False, x0=x0, logs=True):
     """
@@ -43,10 +43,12 @@ def test_trained_single(critic_path, PLOT=False, x0=x0, logs=True):
     xs_init = [x0 for i in range(N_h+1)]
     us_init = [ug  for i in range(N_h)]
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
+    ddp_data = utils.plot_utils.extract_ddp_data(ddp)
     # Plot
     if(PLOT):
-        utils.plot_utils.plot_ddp_results([ddp], robot, SHOW=True)
-    return ddp
+        fig, ax = utils.plot_utils.plot_ddp_results(ddp_data, SHOW=False)
+        utils.plot_utils.plot_refs(fig, ax, config)
+    return ddp_data
 
 
 def test_trained_multiple(critic_path, N=20, PLOT=False):
@@ -55,13 +57,14 @@ def test_trained_multiple(critic_path, N=20, PLOT=False):
     from sampled test points x0
     """
     # Sample test points
-    samples  =   samples_uniform_IK(nb_samples=N, eps_p=0.05, eps_v=0.01)
+    samples   =   samples_uniform_IK(nb_samples=N, eps_p=0.05, eps_v=0.01)
     # Solve for each sample and record
-    DDPS    =   [test_trained_single(critic_path, x0=x, PLOT=False, logs=False) for x in samples]
+    DDPS_DATA = [test_trained_single(critic_path, x0=x, PLOT=False, logs=False) for x in samples]
     # Plot results
     if(PLOT):
-        utils.plot_utils.plot_ddp_results(DDPS, robot, SHOW=True, sampling_plot=1)
-    return DDPS
+        fig, ax = utils.plot_utils.plot_ddp_results(DDPS_DATA, SHOW=False, sampling_plot=1)
+        utils.plot_utils.plot_refs(fig, ax, config)
+    return DDPS_DATA
 
 
 def check_bellman(horizon=200, iter_number=1, WARM_START=0, PLOT=True):
@@ -189,6 +192,6 @@ def check_bellman(horizon=200, iter_number=1, WARM_START=0, PLOT=True):
 
 
 if __name__=='__main__':
-    # test_trained_single(sys.argv[1], int(sys.argv[2]))
+    test_trained_single(sys.argv[1], int(sys.argv[2]))
     # test_trained_multiple(sys.argv[1], int(sys.argv[2]), int(sys.argv[-1]))
-    check_bellman(sys.argv[1], int(sys.argv[2]), int(sys.argv[-1])) #, sys.argv[4])
+    # check_bellman(sys.argv[1], int(sys.argv[2]), int(sys.argv[-1])) #, sys.argv[4])
