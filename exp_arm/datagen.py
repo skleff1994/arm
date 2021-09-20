@@ -189,7 +189,7 @@ def create_train_data(critic=None,horizon=40,nb_samples=100):
                                                 which_plots=['x','u','p'], 
                                                 SHOW=False, 
                                                 sampling_plot=10)
-    utils.plot_utils.plot_refs(fig, ax, config)
+    utils.plot_utils.plot_refs(fig, ax, config, SHOW=False)
     # Save figures
     savepath = os.path.join(os.path.abspath(__file__ + "/../../"), "results/figures")
     fig['p'].savefig(os.path.join(savepath,'p_'+str(time.time())+'_.png'), dpi=200)

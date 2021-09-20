@@ -29,7 +29,7 @@ def extract_ddp_data(ddp):
     return ddp_data
 
 # Plot results from DDP solver 
-def plot_ddp_results(DDPS_DATA, which_plots='all', SHOW=False, sampling_plot=1):
+def plot_ddp_results(DDPS_DATA, which_plots='all', labels=None, SHOW=False, marker=None, sampling_plot=1):
     '''
     Plot ddp results from 1 or several DDP solvers
     X, U, EE trajs
@@ -44,21 +44,21 @@ def plot_ddp_results(DDPS_DATA, which_plots='all', SHOW=False, sampling_plot=1):
         # Return figs and axes object in case need to overlay new plots
         if(k==0):
             if('x' in which_plots or which_plots =='all'):
-                fig_x, ax_x = plot_ddp_state(DDPS_DATA[k], SHOW=False)
+                fig_x, ax_x = plot_ddp_state(DDPS_DATA[k], label=labels[k], SHOW=False, marker=marker)
             if('u' in which_plots or which_plots =='all'):
-                fig_u, ax_u = plot_ddp_control(DDPS_DATA[k], SHOW=False)
+                fig_u, ax_u = plot_ddp_control(DDPS_DATA[k], label=labels[k], SHOW=False, marker=marker)
             if('p' in which_plots or which_plots =='all'):
-                fig_p, ax_p = plot_ddp_endeff(DDPS_DATA[k], SHOW=False)
+                fig_p, ax_p = plot_ddp_endeff(DDPS_DATA[k], label=labels[k], SHOW=False, marker=marker)
 
         # Overlay on top of first plot
         else:
             if(k%sampling_plot==0):
                 if('x' in which_plots or which_plots =='all'):
-                    plot_ddp_state(DDPS_DATA[k], fig=fig_x, ax=ax_x, SHOW=False, marker=None)
+                    plot_ddp_state(DDPS_DATA[k], fig=fig_x, ax=ax_x, label=labels[k], SHOW=False, marker=marker)
                 if('u' in which_plots or which_plots =='all'):
-                    plot_ddp_control(DDPS_DATA[k], fig=fig_u, ax=ax_u, SHOW=False, marker=None)
+                    plot_ddp_control(DDPS_DATA[k], fig=fig_u, ax=ax_u, label=labels[k], SHOW=False, marker=marker)
                 if('p' in which_plots or which_plots =='all'):
-                    plot_ddp_endeff(DDPS_DATA[k], fig=fig_p, ax=ax_p, SHOW=False, marker=None)
+                    plot_ddp_endeff(DDPS_DATA[k], fig=fig_p, ax=ax_p, label=labels[k], SHOW=False, marker=marker)
 
     if(SHOW):
       plt.show()
@@ -184,7 +184,7 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=N
         plt.show()
     return fig, ax
 
-def plot_refs(fig, ax, config):
+def plot_refs(fig, ax, config, SHOW=True):
     '''
     Overlay references on top of existing plots
     '''
@@ -201,12 +201,13 @@ def plot_refs(fig, ax, config):
     handles_x, labels_x = ax['p'][i,0].get_legend_handles_labels()
     fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
 
-    # Add state refs
+    # Add vel refs
     for i in range(nq):
-        ax['x'][i,0].plot(np.linspace(0*dt, N_h*dt, N_h+1), [np.asarray(config['q0'])[i]]*(N_h+1), 'r-.', label='Desired')
+        # ax['x'][i,0].plot(np.linspace(0*dt, N_h*dt, N_h+1), [np.asarray(config['q0'])[i]]*(N_h+1), 'r-.', label='Desired')
         ax['x'][i,1].plot(np.linspace(0*dt, N_h*dt, N_h+1), [np.asarray(config['dq0'])[i]]*(N_h+1), 'r-.', label='Desired')
 
-    plt.show()
+    if(SHOW):
+        plt.show()
     
     # # Add torque refs
     # q = np.array(ddp_data['xs'])[:,:nq]
@@ -215,3 +216,71 @@ def plot_refs(fig, ax, config):
     #     ureg_ref[i,:] = utils.pin_utils.get_u_grav_(q[i,:], ddp_data['pin_model'])
     # for i in range(nu):
     #     ax['u'][i].plot(np.linspace(0*dt, N_h*dt, N_h), ureg_ref[:,i], 'r-.', label='Desired')
+
+# Add limits?
+
+# Full script to generate complete plots (handy to have somewhere)
+# # State 
+# x1 = np.array(ddp1.xs); x2 = np.array(ddp2.xs)
+# u1 = np.array(ddp1.us); u2 = np.array(ddp2.us)
+# q1 = x1[:,:nq]; v1 = x1[:,nv:]
+# q2 = x2[:,:nq]; v2 = x2[:,nv:] 
+# fig_x, ax_x = plt.subplots(nq, 2, sharex='col') 
+# fig_u, ax_u = plt.subplots(nu, 1, sharex='col') 
+# if(bool(WARM_START)):
+#     label='Croco(0..T) + V_'+str(iter_number)+' ( warm-started from Croco([0,..,'+str(iter_number+1)+'T]) )'
+# else:
+#     label='Croco(0..T) + V_'+str(iter_number)
+# for i in range(nq):
+#     ax_x[i,0].plot(np.linspace(0*dt, (iter_number+1)*N_h*dt, (iter_number+1)*N_h+1), q1[:,i], linestyle='-', marker='o', color='b', label='Croco', alpha=0.5)
+#     ax_x[i,0].plot(np.linspace(0*dt, N_h*dt, N_h+1), q2[:,i], linestyle='-', marker='o', color='r', label=label, alpha=0.5)
+#     ax_x[i,0].grid(True)
+#     ax_x[i,0].set_ylabel('$q_%s$'%i, fontsize=16)
+#     ax_x[i,1].plot(np.linspace(0*dt, (iter_number+1)*N_h*dt, (iter_number+1)*N_h+1), v1[:,i], linestyle='-', marker='o', color='b', label='Croco', alpha=0.5)
+#     ax_x[i,1].plot(np.linspace(0*dt, N_h*dt, N_h+1), v2[:,i], linestyle='-', marker='o', color='r', label=label, alpha=0.5)
+#     ax_x[i,1].grid(True)
+#     ax_x[i,1].set_ylabel('$v_%s$'%i, fontsize=16)
+#     ax_u[i].plot(np.linspace(0*dt, (iter_number+1)*N_h*dt, (iter_number+1)*N_h), u1[:,i], linestyle='-', marker='o', color='b', label='Croco', alpha=0.5)
+#     ax_u[i].plot(np.linspace(0*dt, N_h*dt, N_h), u2[:,i], linestyle='-', marker='o', color='r', label=label, alpha=0.5)
+#     ax_u[i].grid(True)
+#     ax_u[i].set_ylabel('$u_%s$'%i, fontsize=16)
+# ax_x[-1,0].set_xlabel('Time (s)', fontsize=16)
+# ax_x[-1,1].set_xlabel('Time (s)', fontsize=16)
+# fig_x.align_ylabels(ax_x[:, 0])
+# fig_x.align_ylabels(ax_x[:, 1])
+# ax_u[-1].set_xlabel('Time (s)', fontsize=16)
+# fig_u.align_ylabels(ax_u[:])
+# handles_x, labels_x = ax_x[i,0].get_legend_handles_labels()
+# fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+# fig_x.suptitle('State : joint positions and velocities', fontsize=18)
+# handles_u, labels_u = ax_u[0].get_legend_handles_labels()
+# fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
+# fig_u.suptitle('Control : joint torques', fontsize=18)
+
+# # EE trajs
+# p_ee1 = utils.pin_utils.get_p(q1, robot.model, id_ee)
+# p_ee2 = utils.pin_utils.get_p(q2, robot.model, id_ee)
+# v_ee1 = utils.pin_utils.get_v(q1, v1, robot.model, id_ee)
+# v_ee2 = utils.pin_utils.get_v(q2, v2, robot.model, id_ee)
+# fig_p, ax_p = plt.subplots(3, 2, sharex='col') 
+# if(bool(WARM_START)):
+#     label='Croco(0..T) + V_'+str(iter_number)+' ( warm-started from Croco([0,..,'+str(iter_number+1)+'T]) )'
+# else:
+#     label='Croco(0..T) + V_'+str(iter_number)
+# xyz = ['x','y','z']
+# for i in range(3):
+#     ax_p[i,0].plot(np.linspace(0*dt, (iter_number+1)*N_h*dt, (iter_number+1)*N_h+1), p_ee1[:,i], linestyle='-', marker='o', color='b', label='Croco', alpha=0.5)
+#     ax_p[i,0].plot(np.linspace(0*dt, N_h*dt, N_h+1), p_ee2[:,i], linestyle='-', marker='o', color='r', label=label, alpha=0.5)
+#     ax_p[i,0].grid(True)
+#     ax_p[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
+#     ax_p[i,1].plot(np.linspace(0*dt, (iter_number+1)*N_h*dt, (iter_number+1)*N_h+1), v_ee1[:,i], linestyle='-', marker='o', color='b', label='Croco', alpha=0.5)
+#     ax_p[i,1].plot(np.linspace(0*dt, N_h*dt, N_h+1), v_ee2[:,i], linestyle='-', marker='o', color='r', label=label, alpha=0.5)
+#     ax_p[i,1].grid(True)
+#     ax_p[i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
+# ax_p[-1,0].set_xlabel('Time (s)', fontsize=16)
+# ax_p[-1,1].set_xlabel('Time (s)', fontsize=16)
+# fig_p.align_ylabels(ax_p[:,0])
+# fig_p.align_ylabels(ax_p[:,1])
+# handles_p, labels_p = ax_p[i,0].get_legend_handles_labels()
+# fig_p.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
+# fig_p.suptitle('End-effector positions and velocities', fontsize=18)

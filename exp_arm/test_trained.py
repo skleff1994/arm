@@ -128,74 +128,19 @@ def check_bellman(horizon=200, iter_number=1, WARM_START=0, PLOT=True):
     print("\n")
     # Plot
     if(PLOT):   
-        # State 
-        x1 = np.array(ddp1.xs); x2 = np.array(ddp2.xs)
-        u1 = np.array(ddp1.us); u2 = np.array(ddp2.us)
-        q1 = x1[:,:nq]; v1 = x1[:,nv:]
-        q2 = x2[:,:nq]; v2 = x2[:,nv:] 
-        fig_x, ax_x = plt.subplots(nq, 2, sharex='col') 
-        fig_u, ax_u = plt.subplots(nu, 1, sharex='col') 
+        d1 = utils.plot_utils.extract_ddp_data(ddp1)
+        d2 = utils.plot_utils.extract_ddp_data(ddp2)
+        label1 ='OCP([0,...,'+ str(iter_number+1)+'T])'
         if(bool(WARM_START)):
-            label='Croco(0..T) + V_'+str(iter_number)+' ( warm-started from Croco([0,..,'+str(iter_number+1)+'T]) )'
+            label2='OCP([0,...,T]) + V_'+str(iter_number)+' ( warm-started from OCP([0,...,'+str(iter_number+1)+'T]) )'
         else:
-            label='Croco(0..T) + V_'+str(iter_number)
-        for i in range(nq):
-            ax_x[i,0].plot(np.linspace(0*dt, (iter_number+1)*N_h*dt, (iter_number+1)*N_h+1), q1[:,i], linestyle='-', marker='o', color='b', label='Croco', alpha=0.5)
-            ax_x[i,0].plot(np.linspace(0*dt, N_h*dt, N_h+1), q2[:,i], linestyle='-', marker='o', color='r', label=label, alpha=0.5)
-            ax_x[i,0].grid(True)
-            ax_x[i,0].set_ylabel('$q_%s$'%i, fontsize=16)
-            ax_x[i,1].plot(np.linspace(0*dt, (iter_number+1)*N_h*dt, (iter_number+1)*N_h+1), v1[:,i], linestyle='-', marker='o', color='b', label='Croco', alpha=0.5)
-            ax_x[i,1].plot(np.linspace(0*dt, N_h*dt, N_h+1), v2[:,i], linestyle='-', marker='o', color='r', label=label, alpha=0.5)
-            ax_x[i,1].grid(True)
-            ax_x[i,1].set_ylabel('$v_%s$'%i, fontsize=16)
-            ax_u[i].plot(np.linspace(0*dt, (iter_number+1)*N_h*dt, (iter_number+1)*N_h), u1[:,i], linestyle='-', marker='o', color='b', label='Croco', alpha=0.5)
-            ax_u[i].plot(np.linspace(0*dt, N_h*dt, N_h), u2[:,i], linestyle='-', marker='o', color='r', label=label, alpha=0.5)
-            ax_u[i].grid(True)
-            ax_u[i].set_ylabel('$u_%s$'%i, fontsize=16)
-        ax_x[-1,0].set_xlabel('Time (s)', fontsize=16)
-        ax_x[-1,1].set_xlabel('Time (s)', fontsize=16)
-        fig_x.align_ylabels(ax_x[:, 0])
-        fig_x.align_ylabels(ax_x[:, 1])
-        ax_u[-1].set_xlabel('Time (s)', fontsize=16)
-        fig_u.align_ylabels(ax_u[:])
-        handles_x, labels_x = ax_x[i,0].get_legend_handles_labels()
-        fig_x.legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-        fig_x.suptitle('State : joint positions and velocities', fontsize=18)
-        handles_u, labels_u = ax_u[0].get_legend_handles_labels()
-        fig_u.legend(handles_u, labels_u, loc='upper right', prop={'size': 16})
-        fig_u.suptitle('Control : joint torques', fontsize=18)
-
-        # EE trajs
-        p_ee1 = utils.pin_utils.get_p(q1, robot, id_ee)
-        p_ee2 = utils.pin_utils.get_p(q2, robot, id_ee)
-        v_ee1 = utils.pin_utils.get_v(q1, v1, robot, id_ee)
-        v_ee2 = utils.pin_utils.get_v(q2, v2, robot, id_ee)
-        fig_p, ax_p = plt.subplots(3, 2, sharex='col') 
-        if(bool(WARM_START)):
-            label='Croco(0..T) + V_'+str(iter_number)+' ( warm-started from Croco([0,..,'+str(iter_number+1)+'T]) )'
-        else:
-            label='Croco(0..T) + V_'+str(iter_number)
-        xyz = ['x','y','z']
-        for i in range(3):
-            ax_p[i,0].plot(np.linspace(0*dt, (iter_number+1)*N_h*dt, (iter_number+1)*N_h+1), p_ee1[:,i], linestyle='-', marker='o', color='b', label='Croco', alpha=0.5)
-            ax_p[i,0].plot(np.linspace(0*dt, N_h*dt, N_h+1), p_ee2[:,i], linestyle='-', marker='o', color='r', label=label, alpha=0.5)
-            ax_p[i,0].grid(True)
-            ax_p[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
-            ax_p[i,1].plot(np.linspace(0*dt, (iter_number+1)*N_h*dt, (iter_number+1)*N_h+1), v_ee1[:,i], linestyle='-', marker='o', color='b', label='Croco', alpha=0.5)
-            ax_p[i,1].plot(np.linspace(0*dt, N_h*dt, N_h+1), v_ee2[:,i], linestyle='-', marker='o', color='r', label=label, alpha=0.5)
-            ax_p[i,1].grid(True)
-            ax_p[i,1].set_ylabel('$V^{EE}_%s$ (m/s)'%xyz[i], fontsize=16)
-        ax_p[-1,0].set_xlabel('Time (s)', fontsize=16)
-        ax_p[-1,1].set_xlabel('Time (s)', fontsize=16)
-        fig_p.align_ylabels(ax_p[:,0])
-        fig_p.align_ylabels(ax_p[:,1])
-        handles_p, labels_p = ax_p[i,0].get_legend_handles_labels()
-        fig_p.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
-        fig_p.suptitle('End-effector positions and velocities', fontsize=18)
+            label2='OCP([0,...,T]) + V_'+str(iter_number)
+        labels = [label1, label2]
+        fig, ax = utils.plot_utils.plot_ddp_results([d1, d2], labels=[label1, label2], SHOW=False, marker='o', sampling_plot=1)
+        utils.plot_utils.plot_refs(fig, ax, config)
         plt.show()
 
-
 if __name__=='__main__':
-    test_trained_single(sys.argv[1], int(sys.argv[2]))
+    # test_trained_single(sys.argv[1], int(sys.argv[2]))
     # test_trained_multiple(sys.argv[1], int(sys.argv[2]), int(sys.argv[-1]))
-    # check_bellman(sys.argv[1], int(sys.argv[2]), int(sys.argv[-1])) #, sys.argv[4])
+    check_bellman(sys.argv[1], int(sys.argv[2]), int(sys.argv[-1])) #, sys.argv[4])
