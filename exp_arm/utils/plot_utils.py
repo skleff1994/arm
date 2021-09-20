@@ -1,7 +1,12 @@
+# This files contains useful functions to plot results of OCP
+# Author : Sébastien Kleff
+# Date : 09/20/2021
+
 import matplotlib.pyplot as plt
 import numpy as np
 import utils.pin_utils
 
+# Extract relevant data from DDP solver for plotting
 def extract_ddp_data(ddp):
     '''
     Record relevant data from ddp solver in order to plot 

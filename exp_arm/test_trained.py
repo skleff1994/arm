@@ -1,4 +1,8 @@
 
+# This files contains scrip to test the performance and debug the learned value function
+# Author : Sébastien Kleff
+# Date : 09/20/2021
+
 import numpy as np
 import utils.path_utils, utils.ocp_utils, utils.plot_utils, utils.pin_utils
 from pinocchio.robot_wrapper import RobotWrapper

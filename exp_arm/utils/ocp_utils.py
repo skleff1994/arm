@@ -1,3 +1,7 @@
+# This files contains the OCP setup using Crocoddyl
+# Author : Sébastien Kleff
+# Date : 09/20/2021
+
 import crocoddyl
 import numpy as np
 import pinocchio as pin

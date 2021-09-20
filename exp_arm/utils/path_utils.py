@@ -1,3 +1,7 @@
+# This files contains utilities for file loading
+# Author : Sébastien Kleff
+# Date : 09/20/2021
+
 import yaml
 import os
 
