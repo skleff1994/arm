@@ -8,9 +8,18 @@ Code for Differential Value Programming (DVP) implementation and example on the 
 
 # How to use it ?
 
-Install PyTorch and Crocoddyl first if you don't have them already installed. The `git clone` this repo.
+Install PyTorch and Crocoddyl first if you don't have them already installed, then 
 
-First generate a test set by running `datagen.py`, then launch the training using `main.py`. 
+```
+git clone https://github.com/skleff1994/arm.git
+``` 
+
+- First generate a test set by running `exp_arm/datagen.py`
+- Then launch the training using `exp_arm/main.py`
+
+The trained NN will be saved in `results/trained_models` and figures of the training sets generated throughout iterations will be saved in `results/figures`. 
+
+The directory `config/robot_properties_kuka` contains URDF and meshes information of the robot, and `config/ocp_params` contains sets of parameters describing the OCP for Crocoddyl. The OCP is setup in `utils/ocp_utils.py`
 
 
 # Acknowledgements
