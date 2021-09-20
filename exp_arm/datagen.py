@@ -1,0 +1,257 @@
+# import crocoddyl
+import numpy as np
+# import pinocchio as pin
+from pinocchio.robot_wrapper import RobotWrapper
+from robot_properties_kuka.config import IiwaConfig
+import utils_amit
+from tqdm import tqdm
+import torch
+import pinocchio as pin
+
+import matplotlib.pyplot as plt
+import time
+
+urdf_path = '/home/skleff/misc_repos/arm/exp_arm/robot_properties_kuka/urdf/iiwa.urdf'
+mesh_path = '/home/skleff/misc_repos/arm/exp_arm/robot_properties_kuka' 
+robot = RobotWrapper.BuildFromURDF(urdf_path, mesh_path)
+config = utils_amit.load_config_file('static_reaching_task_ocp2')
+q0 = np.asarray(config['q0'])
+v0 = np.asarray(config['dq0'])
+x0 = np.concatenate([q0, v0])   
+
+id_endeff = robot.model.getFrameId('contact')
+nq, nv = robot.model.nq, robot.model.nv
+nx = nq+nv
+nu = nq
+# Update robot model with initial state
+robot.framesForwardKinematics(q0)
+robot.computeJointJacobians(q0)
+
+
+
+
+
+##################
+
+def tensorize(arrays):
+    """
+    Convert a list of np arrays to torch tensor
+    """
+    return [torch.tensor(array,dtype=torch.float64, requires_grad=True) for array in arrays]
+
+
+
+# # Sampling conservative range for the state : 95% q limits and [-0.5, +0.5] v limits
+# def samples(nb_samples:int):
+#     '''
+#     Samples initial states x = (q,v) within conservative state range
+#     '''
+#     samples = []
+#     q_max = 0.85*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
+#     v_max = 0.1*np.ones(nv) #np.array([1.4835, 1.4835, 1.7453, 1.309 , 2.2689, 2.3562, 2.3562])  #np.zeros(nv) 
+#     x_max = np.concatenate([q_max, v_max])   
+#     for i in range(nb_samples):
+#         samples.append( np.random.uniform(low=-x_max, high=+x_max, size=(nx,)))
+#     return np.array(samples)
+
+def samples(nb_samples:int, q0=q0, 
+                            p_des=config['p_des'], 
+                            v_des=np.zeros(3), 
+                            id_endeff=id_endeff, 
+                            eps_p=0.05, eps_v=0.01,
+                            SUBSAMPLING=False):
+    # Sample several states 
+    N_SAMPLES = nb_samples
+    TSK_SPACE_SAMPLES = []
+    JNT_SPACE_SAMPLES = []
+    # Define bounds in cartesian space to sample (p_EE,v_EE) around (p_des,0)
+    p_min = p_des - np.ones(3)*eps_p; p_max = p_des + np.ones(3)*eps_p
+    v_min = v_des - np.ones(3)*eps_v; v_max = v_des + np.ones(3)*eps_v
+    y_min = np.concatenate([p_min, v_min])
+    y_max = np.concatenate([p_max, v_max])
+    print("Sampling "+str(N_SAMPLES)+" states...")
+    # Generate samples (uniform)
+    for i in range(N_SAMPLES):
+        # Sample
+        y_EE = np.random.uniform(low=y_min, high=y_max, size=(6,))
+        TSK_SPACE_SAMPLES.append( y_EE )
+        # print(" Task sample  = ", y_EE)
+        # print("Sample "+str(i)+"/"+str(N_SAMPLES))
+        # IK
+        q, _, _ = utils_amit.IK_position(robot, q0, id_endeff, y_EE[:3],
+                                        DISPLAY=False, LOGS=False, DT=1e-1, IT_MAX=1000, EPS=1e-6)
+        pin.computeJointJacobians(robot.model, robot.data, q)
+        robot.framesForwardKinematics(q)
+        J_q = pin.getFrameJacobian(robot.model, robot.data, id_endeff, pin.ReferenceFrame.LOCAL) 
+        vq = np.linalg.pinv(J_q)[:,:3].dot(y_EE[3:]) 
+        x = np.concatenate([q, vq])
+        JNT_SPACE_SAMPLES.append( x )
+    return JNT_SPACE_SAMPLES
+
+# def sub_sample(nb_samples:int, jnt_space_samples):
+#     # Check where the samples end up in Croco
+#     DDPS = []
+#     q_max = -np.inf*np.ones(nq)
+#     q_min = np.inf*np.ones(nq)
+#     v_max = -np.inf*np.ones(nq)
+#     v_min = np.inf*np.ones(nq)
+#     for x0 in jnt_space_samples:
+#         q0 = x0[:nq]
+#         robot.framesForwardKinematics(q0)
+#         robot.computeJointJacobians(q0)
+#         ddp = utils_amit.init_DDP(robot, config, x0, critic=None, callbacks=False, 
+#                                     which_costs=['translation', 
+#                                                 'ctrlReg', 
+#                                                 'stateReg', 
+#                                                 'stateLim'], dt=config['dt'], N_h=config['dt']) 
+#         ddp.problem.x0  =   x0   
+#         ug = utils_amit.get_u_grav(q0, robot)
+#         xs_init = [x0 for i in range(config['dt']+1)]
+#         us_init = [ug  for i in range(config['dt'])]
+#         # Solve
+#         ddp.solve(xs_init, us_init, maxiter=1000, isFeasible=False)
+#         DDPS.append(ddp)
+#         q = np.array(ddp.xs)[:,:nq]
+#         v = np.array(ddp.xs)[:,nv:]
+#         q_max = [max(q_max[j], [ np.max(q[:,i]) for i in range(nq) ][j]) for j in range(nq) ]
+#         q_min = [min(q_min[j], [ np.min(q[:,i]) for i in range(nq) ][j]) for j in range(nq) ]
+#         v_max = [max(v_max[j], [ np.max(v[:,i]) for i in range(nv) ][j]) for j in range(nv) ]
+#         v_min = [min(v_min[j], [ np.min(v[:,i]) for i in range(nv) ][j]) for j in range(nv) ]
+
+
+#     return JNT_SPACE_SAMPLES
+
+
+
+def create_train_data(critic=None,horizon=40,nb_samples=100):
+    
+    #ddp     =   create_solver(critic=critic,horizon=horizon)
+
+    points  =   samples(nb_samples=nb_samples + 1000)
+    np.random.shuffle(points)
+    
+    x0s     =   []
+    v       =   []
+    vx      =   []
+    DDPS    =   []
+
+    rejected = 0
+    for x0 in tqdm(points):
+
+        q0 = x0[:nq]
+        # Update robot model with initial state
+        robot.framesForwardKinematics(q0)
+        robot.computeJointJacobians(q0)
+
+
+        ddp = utils_amit.init_DDP(robot,
+                                  config,
+                                  x0,
+                                  critic=critic,
+                                  callbacks=False, 
+                                  which_costs=['translation', 
+                                               'ctrlReg', 
+                                               'stateReg', 
+                                               #'velocity',
+                                               'stateLim'],
+                                  dt = None,
+                                  N_h=horizon) 
+
+
+        ddp.problem.x0  =   x0   
+        ug = utils_amit.get_u_grav(q0, robot)
+        xs_init = [x0 for i in range(horizon+1)]
+        us_init = [ug  for i in range(horizon)]
+        # Solve
+        ddp.solve(xs_init, us_init, maxiter=1000, isFeasible=False)
+        
+        if(ddp.x_reg >= 1e-1 or ddp.u_reg >= 1e-1):
+            rejected+=1
+            print("Rejected !!!")
+            continue
+
+        else:
+            gradient    =   list(ddp.Vx)[0]
+            value       =   ddp.cost
+            point       =   x0
+            x0s.append( x0 )
+            vx.append( gradient )
+            v.append( value )
+            print(value)
+
+            # Record ddp_data
+            ddp_data = {}
+            ddp_data['T'] = ddp.problem.T
+            ddp_data['dt'] = ddp.problem.runningModels[0].dt
+            ddp_data['nq'] = ddp.problem.runningModels[0].state.nq
+            ddp_data['nv'] = ddp.problem.runningModels[0].state.nv
+            ddp_data['nu'] = ddp.problem.runningModels[0].nu
+            ddp_data['xs'] = ddp.xs
+            ddp_data['us'] = ddp.us
+            DDPS.append(ddp_data)
+            
+        if len(v) == 100:
+            break
+
+    print(f"Rejected {rejected}")
+    x0s     =   np.array( x0s )
+    vx      =   np.array( vx )
+    v       =   np.array( v ).reshape(-1,1)
+    print(f"Dataset shape: {v.shape}")
+
+    # plot training data
+    fig, ax = utils_amit.plot_ddp_results(DDPS, robot, 
+                                                which_plots=['x','u','p'], 
+                                                SHOW=False, 
+                                                sampling_plot=10)
+    # ref on plots
+    p_des = np.asarray(config['p_des']) 
+    for i in range(3):
+        ax['p'][i].plot(np.linspace(0, horizon*config['dt'], horizon+1), [p_des[i]]*(horizon+1), 'r-.', label='Desired')
+    handles_x, labels_x = ax['p'][i].get_legend_handles_labels()
+    fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
+    # Save
+    fig['p'].savefig('p_'+str(time.time())+'_.png', dpi=200)
+    fig['x'].savefig('x_'+str(time.time())+'_.png', dpi=200)
+    fig['u'].savefig('u_'+str(time.time())+'_.png', dpi=200)
+    plt.close('all')
+
+    return [x0s, v, vx]
+
+def make_training_dataloader(critic=None,horizon=40,nb_samples=100):
+    """
+    TO be used specifically in training
+    """
+
+
+    datas       =   create_train_data(critic=critic,horizon=horizon,nb_samples=nb_samples)
+    datas       =   tensorize(datas)
+    dataset     =   torch.utils.data.TensorDataset(*datas)
+    dataloader  =   torch.utils.data.DataLoader(dataset,
+                                                batch_size=64,
+                                                shuffle=True)
+    return dataloader
+
+
+def create_test_data():
+
+    datas    =  create_train_data(critic=None,horizon=800,nb_samples=50)
+    datas    =  tensorize(datas)
+
+    torch.save(datas,"test_data.pth") 
+
+if __name__=='__main__':
+    create_test_data()
+
+
+
+
+        
+
+
+    
+
+
+
+
+
