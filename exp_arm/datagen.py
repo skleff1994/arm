@@ -27,8 +27,6 @@ robot.computeJointJacobians(q0)
 
 
 
-
-
 ##################
 
 def tensorize(arrays):
@@ -39,25 +37,24 @@ def tensorize(arrays):
 
 
 
-# # Sampling conservative range for the state : 95% q limits and [-0.5, +0.5] v limits
-# def samples(nb_samples:int):
-#     '''
-#     Samples initial states x = (q,v) within conservative state range
-#     '''
-#     samples = []
-#     q_max = 0.85*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
-#     v_max = 0.1*np.ones(nv) #np.array([1.4835, 1.4835, 1.7453, 1.309 , 2.2689, 2.3562, 2.3562])  #np.zeros(nv) 
-#     x_max = np.concatenate([q_max, v_max])   
-#     for i in range(nb_samples):
-#         samples.append( np.random.uniform(low=-x_max, high=+x_max, size=(nx,)))
-#     return np.array(samples)
+# Sampling conservative range for the state : 95% q limits and [-0.5, +0.5] v limits
+def samples_uniform(nb_samples:int):
+    '''
+    Samples initial states x = (q,v) within conservative state range
+    '''
+    samples = []
+    q_max = 0.85*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
+    v_max = 0.1*np.ones(nv) #np.array([1.4835, 1.4835, 1.7453, 1.309 , 2.2689, 2.3562, 2.3562])  #np.zeros(nv) 
+    x_max = np.concatenate([q_max, v_max])   
+    for i in range(nb_samples):
+        samples.append( np.random.uniform(low=-x_max, high=+x_max, size=(nx,)))
+    return np.array(samples)
 
-def samples(nb_samples:int, q0=q0, 
+def samples_uniform_IK(nb_samples:int, q0=q0, 
                             p_des=config['p_des'], 
                             v_des=config['v_des'], 
                             id_endeff=id_endeff, 
-                            eps_p=0.05, eps_v=0.01,
-                            SUBSAMPLING=False):
+                            eps_p=0.05, eps_v=0.01):
     '''
     Sample task space (EE pos and vel) and apply IK 
     in order to get corresponding joint space samples
@@ -74,12 +71,10 @@ def samples(nb_samples:int, q0=q0,
     print("Sampling "+str(N_SAMPLES)+" states...")
     # Generate samples (uniform)
     for i in range(N_SAMPLES):
-        # Sample
+        # Task space sample
         y_EE = np.random.uniform(low=y_min, high=y_max, size=(6,))
         TSK_SPACE_SAMPLES.append( y_EE )
-        # print(" Task sample  = ", y_EE)
-        # print("Sample "+str(i)+"/"+str(N_SAMPLES))
-        # IK
+        # Inverse kinematics
         q, _, _ = utils.pin_utils.IK_position(robot, q0, id_endeff, y_EE[:3],
                                         DISPLAY=False, LOGS=False, DT=1e-1, IT_MAX=1000, EPS=1e-6)
         pin.computeJointJacobians(robot.model, robot.data, q)
@@ -90,7 +85,8 @@ def samples(nb_samples:int, q0=q0,
         JNT_SPACE_SAMPLES.append( x )
     return JNT_SPACE_SAMPLES
 
-# def sub_sample(nb_samples:int, jnt_space_samples):
+# BONUS: implement adaptive sampling to get a better training set
+# def adaptive_sample(nb_samples:int, jnt_space_samples):
 #     # Check where the samples end up in Croco
 #     DDPS = []
 #     q_max = -np.inf*np.ones(nq)
@@ -119,8 +115,6 @@ def samples(nb_samples:int, q0=q0,
 #         q_min = [min(q_min[j], [ np.min(q[:,i]) for i in range(nq) ][j]) for j in range(nq) ]
 #         v_max = [max(v_max[j], [ np.max(v[:,i]) for i in range(nv) ][j]) for j in range(nv) ]
 #         v_min = [min(v_min[j], [ np.min(v[:,i]) for i in range(nv) ][j]) for j in range(nv) ]
-
-
 #     return JNT_SPACE_SAMPLES
 
 
@@ -128,7 +122,7 @@ def samples(nb_samples:int, q0=q0,
 def create_train_data(critic=None,horizon=40,nb_samples=100):
     
 
-    points  =   samples(nb_samples=nb_samples + 1000)
+    points  =   samples_uniform_IK(nb_samples=nb_samples + 1000)
     np.random.shuffle(points)
     
     x0s     =   []
@@ -150,10 +144,7 @@ def create_train_data(critic=None,horizon=40,nb_samples=100):
                                   x0,
                                   critic=critic,
                                   callbacks=False, 
-                                  which_costs=['translation', 
-                                               'ctrlReg', 
-                                               'stateReg', 
-                                               'stateLim'],
+                                  which_costs=config['WHICH_COSTS'],
                                   dt = None,
                                   N_h=horizon) 
 

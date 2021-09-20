@@ -14,11 +14,11 @@ def establish_baselines():
     NX                  =   14
     EPISODES            =   20
     EARLY_STOP_V        =   1.0e-6
-    EARLY_STOP_VX       =   1.0e-6 #8.0e-5
-    N_EPOCHS            =   1000000# 10000
+    EARLY_STOP_VX       =   1.0e-6 
+    N_EPOCHS            =   1000000
     LR                  =   1.0e-3
     BATCHSIZE           =   64
-    TRAIN_SIZE          =   100
+    TRAIN_SIZE          =   10
     TEST_SIZE           =   100
     NR                  =   3
     NH                  =   3

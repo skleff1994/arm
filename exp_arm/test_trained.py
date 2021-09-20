@@ -1,32 +1,32 @@
 
 import numpy as np
-import utils_amit
+import utils.path_utils, utils.ocp_utils, utils.plot_utils, utils.pin_utils
 from pinocchio.robot_wrapper import RobotWrapper
 import torch
 import sys
 np.set_printoptions(precision=4, linewidth=180)
 import matplotlib.pyplot as plt
+import os
+from datagen import samples_uniform_IK
 
+# Load robot and OCP config
+urdf_path = os.path.join(os.path.abspath(__file__ + "/../../"), 'config/robot_properties_kuka/urdf/iiwa.urdf')
+mesh_path = os.path.join(os.path.abspath(__file__ + "/../../"), 'config/robot_properties_kuka')
+robot = RobotWrapper.BuildFromURDF(urdf_path, mesh_path)
+config = utils.path_utils.load_config_file('static_reaching_task_ocp2')
+q0 = np.asarray(config['q0'])
+v0 = np.asarray(config['dq0'])
+x0 = np.concatenate([q0, v0])   
+N_h = config['N_h']
+dt = config['dt']
 
 def test_trained(critic_path, PLOT=True):
     """
     Solve an OCP using the trained NN as a terminal cost
     """
-    # Read config file
-    config = utils_amit.load_config_file('static_reaching_task_ocp')
-    q0 = np.asarray(config['q0'])
-    v0 = np.asarray(config['dq0'])
-    x0 = np.concatenate([q0, v0])   
-    # Get pin wrapper
-    urdf_path = '/home/skleff/misc_repos/arm/exp_arm/robot_properties_kuka/urdf/iiwa.urdf'
-    mesh_path = '/home/skleff/misc_repos/arm/exp_arm/robot_properties_kuka' 
-    robot   =   RobotWrapper.BuildFromURDF(urdf_path, mesh_path)
-
-    # Setup OCP with trained NN as terminal model
-    N_h = config['N_h']
-    dt = config['dt']
+    # Load trained NN 
     Net  = torch.load(critic_path)
-    ddp = utils_amit.init_DDP(robot, config, x0, critic=None,#Net, 
+    ddp = utils.ocp_utils.init_DDP(robot, config, x0, critic=Net, 
                                                 callbacks=True, 
                                                 which_costs=['translation', 
                                                              'ctrlReg', 
@@ -34,15 +34,15 @@ def test_trained(critic_path, PLOT=True):
                                                              'stateLim'],
                                                 dt = None, N_h=N_h) 
     # Warm-start
-    ug = utils_amit.get_u_grav(q0, robot)
+    ug = utils.pin_utils.get_u_grav(q0, robot)
     xs_init = [x0 for i in range(N_h+1)]
     us_init = [ug  for i in range(N_h)]
     # Solve
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
     if(PLOT):
-        utils_amit.plot_ddp_results([ddp], robot, SHOW=True)
+        utils.plot_utils.plot_ddp_results([ddp], robot, SHOW=True)
 
-from datagen import samples
+
 
 def test_(critic_path, N=20):
     """
@@ -50,7 +50,7 @@ def test_(critic_path, N=20):
     from sampled test points x0
     """
     # Read config file
-    config = utils_amit.load_config_file('static_reaching_task_ocp')
+    config = utils.path_utils.load_config_file('static_reaching_task_ocp')
     # Get pin wrapper
     urdf_path = '/home/skleff/misc_repos/arm/exp_arm/robot_properties_kuka/urdf/iiwa.urdf'
     mesh_path = '/home/skleff/misc_repos/arm/exp_arm/robot_properties_kuka' 
@@ -67,7 +67,7 @@ def test_(critic_path, N=20):
         q0 = x0[:nq]
         robot.framesForwardKinematics(q0)
         robot.computeJointJacobians(q0)
-        ddp = utils_amit.init_DDP(robot,
+        ddp = utils.ocp_utils.init_DDP(robot,
                                   config,
                                   x0,
                                   critic=Net,
@@ -79,7 +79,7 @@ def test_(critic_path, N=20):
                                   dt=dt,
                                   N_h=N_h) 
         ddp.problem.x0  =   x0   
-        ug = utils_amit.get_u_grav(q0, robot)
+        ug = utils.pin_utils.get_u_grav(q0, robot)
         xs_init = [x0 for i in range(N_h+1)]
         us_init = [ug  for i in range(N_h)]
         # Solve
@@ -87,7 +87,7 @@ def test_(critic_path, N=20):
         DDPS.append(ddp)
 
     # Plot results
-    utils_amit.plot_ddp_results(DDPS, robot, SHOW=True, sampling_plot=1)
+    utils.plot_utils.plot_ddp_results(DDPS, robot, SHOW=True, sampling_plot=1)
 
 
 def check_bellman(critic_path, iter_number=1, WARM_START=0, PLOT=True):
@@ -103,7 +103,7 @@ def check_bellman(critic_path, iter_number=1, WARM_START=0, PLOT=True):
     """
 
     # Read config file
-    config = utils_amit.load_config_file('static_reaching_task_ocp2')
+    config = utils.path_utils.load_config_file('static_reaching_task_ocp2')
     q0 = np.asarray(config['q0'])
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0])
@@ -118,14 +118,14 @@ def check_bellman(critic_path, iter_number=1, WARM_START=0, PLOT=True):
     # Setup OCP over [0,...,kT] and solve using Croco
     N_h = config['N_h']
     dt = config['dt']
-    ddp1 = utils_amit.init_DDP(robot, config, x0, critic=None, 
+    ddp1 = utils.ocp_utils.init_DDP(robot, config, x0, critic=None, 
                                                   callbacks=False, 
                                                   which_costs=['translation', 
                                                                'ctrlReg', 
                                                                'stateReg', 
                                                                'stateLim'],
                                                   dt = dt, N_h=(iter_number+1)*N_h) 
-    ug = utils_amit.get_u_grav(q0, robot)
+    ug = utils.pin_utils.get_u_grav(q0, robot)
     xs_init = [x0 for i in range((iter_number+1)*N_h+1)]
     us_init = [ug  for i in range((iter_number+1)*N_h)]
     # Solve
@@ -141,7 +141,7 @@ def check_bellman(critic_path, iter_number=1, WARM_START=0, PLOT=True):
     critic_name = critic_path+"/eps_"+str(iter_number-1)+".pth"
     print("Selecting trained network : eps_"+str(iter_number-1)+".pth\n")
     Net = torch.load(critic_name)
-    ddp2 = utils_amit.init_DDP(robot, config, x0, critic=Net,
+    ddp2 = utils.ocp_utils.init_DDP(robot, config, x0, critic=Net,
                                                   callbacks=False, 
                                                   which_costs=['translation', 
                                                                'ctrlReg', 
@@ -153,7 +153,7 @@ def check_bellman(critic_path, iter_number=1, WARM_START=0, PLOT=True):
         xs_init = [ddp1.xs[i] for i in range(N_h+1)]
         us_init = [ddp1.us[i]  for i in range(N_h)]
     else:
-        ug = utils_amit.get_u_grav(q0, robot)
+        ug = utils.pin_utils.get_u_grav(q0, robot)
         xs_init = [x0 for i in range(N_h+1)]
         us_init = [ug  for i in range(N_h)]
     ddp2.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
@@ -205,10 +205,10 @@ def check_bellman(critic_path, iter_number=1, WARM_START=0, PLOT=True):
         fig_u.suptitle('Control : joint torques', fontsize=18)
 
         # EE trajs
-        p_ee1 = utils_amit.get_p(q1, robot, id_ee)
-        p_ee2 = utils_amit.get_p(q2, robot, id_ee)
-        v_ee1 = utils_amit.get_v(q1, v1, robot, id_ee)
-        v_ee2 = utils_amit.get_v(q2, v2, robot, id_ee)
+        p_ee1 = utils.pin_utils.get_p(q1, robot, id_ee)
+        p_ee2 = utils.pin_utils.get_p(q2, robot, id_ee)
+        v_ee1 = utils.pin_utils.get_v(q1, v1, robot, id_ee)
+        v_ee2 = utils.pin_utils.get_v(q2, v2, robot, id_ee)
         fig_p, ax_p = plt.subplots(3, 2, sharex='col') 
         if(bool(WARM_START)):
             label='Croco(0..T) + V_'+str(iter_number)+' ( warm-started from Croco([0,..,'+str(iter_number+1)+'T]) )'
@@ -240,7 +240,7 @@ def match_croco_V1(critic_path, PLOT=True):
     """
 
     # Read config file
-    config = utils_amit.load_config_file('static_reaching_task_ocp2')
+    config = utils.path_utils.load_config_file('static_reaching_task_ocp2')
     q0 = np.asarray(config['q0'])
     v0 = np.asarray(config['dq0'])
     x0 = np.concatenate([q0, v0])  
@@ -254,7 +254,7 @@ def match_croco_V1(critic_path, PLOT=True):
     # Setup OCP over [0,...,2T] and solve using Croco
     N_h = config['N_h']
     dt = config['dt']
-    ddp1 = utils_amit.init_DDP(robot, config, x0, critic=None, 
+    ddp1 = utils.ocp_utils.init_DDP(robot, config, x0, critic=None, 
                                                   callbacks=False, 
                                                   which_costs=['translation', 
                                                                'ctrlReg', 
@@ -262,7 +262,7 @@ def match_croco_V1(critic_path, PLOT=True):
                                                                'stateLim'],
                                                   dt = dt, N_h=2*N_h) 
     # Warm-start with ug, x0
-    ug = utils_amit.get_u_grav(q0, robot)
+    ug = utils.pin_utils.get_u_grav(q0, robot)
     xs_init = [x0 for i in range(2*N_h+1)]
     us_init = [ug  for i in range(2*N_h)]
     # Solve
@@ -277,7 +277,7 @@ def match_croco_V1(critic_path, PLOT=True):
     critic_name = critic_path+"/eps_0.pth"
     print("Selecting trained network : eps_0.pth")
     Net = torch.load(critic_name)
-    ddp2 = utils_amit.init_DDP(robot, config, x0, critic=Net,
+    ddp2 = utils.ocp_utils.init_DDP(robot, config, x0, critic=Net,
                                                   callbacks=False, 
                                                   which_costs=['translation', 
                                                                'ctrlReg', 
@@ -297,8 +297,8 @@ def match_croco_V1(critic_path, PLOT=True):
     if(PLOT):
         nq=7
         id_ee = robot.model.getFrameId('contact')
-        p1 = utils_amit.get_p(np.array(ddp1.xs)[:,:nq], robot, id_ee)
-        p2 = utils_amit.get_p(np.array(ddp2.xs)[:,:nq], robot, id_ee)
+        p1 = utils.pin_utils.get_p(np.array(ddp1.xs)[:,:nq], robot, id_ee)
+        p2 = utils.pin_utils.get_p(np.array(ddp2.xs)[:,:nq], robot, id_ee)
         fig, ax = plt.subplots(3, 1, sharex='col') 
         for i in range(3):
             # Plot a posteriori integration to check IAM
