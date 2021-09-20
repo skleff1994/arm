@@ -7,6 +7,9 @@ from learner import Learner
 from datagen import make_training_dataloader
 import os
 
+from numpy.lib import utils
+
+from utils import path_utils
 
 def establish_baselines():
 
@@ -27,7 +30,7 @@ def establish_baselines():
     
 
     ############################################################################################# LOGGER
-    resultspath = os.path.join(os.path.abspath(__file__ + "/../../"), "results")
+    resultspath = path_utils.results_path()
     logdir = os.path.join(resultspath, f"trained_models/dvp/Order_{1}/Horizon_{HORIZON}/")
 
     Path(logdir).mkdir(parents=True, exist_ok=True)

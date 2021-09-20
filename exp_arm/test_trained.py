@@ -4,7 +4,7 @@
 # Date : 09/20/2021
 
 import numpy as np
-import utils.path_utils, utils.ocp_utils, utils.plot_utils, utils.pin_utils
+from utils import path_utils, ocp_utils, plot_utils, pin_utils
 from pinocchio.robot_wrapper import RobotWrapper
 import torch
 import sys
@@ -14,10 +14,8 @@ import os
 from datagen import samples_uniform_IK
 
 # Load robot and OCP config
-urdf_path = os.path.join(os.path.abspath(__file__ + "/../../"), 'config/robot_properties_kuka/urdf/iiwa.urdf')
-mesh_path = os.path.join(os.path.abspath(__file__ + "/../../"), 'config/robot_properties_kuka')
-robot = RobotWrapper.BuildFromURDF(urdf_path, mesh_path)
-config = utils.path_utils.load_config_file('static_reaching_task_ocp2')
+robot = RobotWrapper.BuildFromURDF(path_utils.kuka_urdf_path(), path_utils.kuka_mesh_path())
+config = path_utils.load_config_file('static_reaching_task_ocp2')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
@@ -27,7 +25,7 @@ nq=robot.model.nq; nv=robot.model.nv; nu=nq; nx=nq+nv
 N_h = config['N_h']
 dt = config['dt']
 id_ee = robot.model.getFrameId('contact')
-resultspath = os.path.join(os.path.abspath(__file__ + "/../../"), "results")
+resultspath = path_utils.results_path()
 
 def test_trained_single(critic_path, PLOT=False, x0=x0, logs=True):
     """
@@ -39,19 +37,19 @@ def test_trained_single(critic_path, PLOT=False, x0=x0, logs=True):
     q0 = x0[:nq]
     robot.framesForwardKinematics(q0)
     robot.computeJointJacobians(q0)
-    ddp = utils.ocp_utils.init_DDP(robot, config, x0, critic=Net, 
+    ddp = ocp_utils.init_DDP(robot, config, x0, critic=Net, 
                                    callbacks=logs, 
                                    which_costs=config['WHICH_COSTS'],
                                    dt=dt, N_h=N_h) 
-    ug = utils.pin_utils.get_u_grav(q0, robot)
+    ug = pin_utils.get_u_grav(q0, robot)
     xs_init = [x0 for i in range(N_h+1)]
     us_init = [ug  for i in range(N_h)]
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
-    ddp_data = utils.plot_utils.extract_ddp_data(ddp)
+    ddp_data = plot_utils.extract_ddp_data(ddp)
     # Plot
     if(PLOT):
-        fig, ax = utils.plot_utils.plot_ddp_results(ddp_data, SHOW=False)
-        utils.plot_utils.plot_refs(fig, ax, config)
+        fig, ax = plot_utils.plot_ddp_results(ddp_data, SHOW=False)
+        plot_utils.plot_refs(fig, ax, config)
     return ddp_data
 
 
@@ -66,8 +64,8 @@ def test_trained_multiple(critic_path, N=20, PLOT=False):
     DDPS_DATA = [test_trained_single(critic_path, x0=x, PLOT=False, logs=False) for x in samples]
     # Plot results
     if(PLOT):
-        fig, ax = utils.plot_utils.plot_ddp_results(DDPS_DATA, SHOW=False, sampling_plot=1)
-        utils.plot_utils.plot_refs(fig, ax, config)
+        fig, ax = plot_utils.plot_ddp_results(DDPS_DATA, SHOW=False, sampling_plot=1)
+        plot_utils.plot_refs(fig, ax, config)
     return DDPS_DATA
 
 
@@ -83,11 +81,11 @@ def check_bellman(horizon=200, iter_number=1, WARM_START=0, PLOT=True):
      Should be the same  
     """
     # Solve OCP over [0,...,(k+1)T] using Crocoddyl
-    ddp1 = utils.ocp_utils.init_DDP(robot, config, x0, critic=None, 
+    ddp1 = ocp_utils.init_DDP(robot, config, x0, critic=None, 
                                     callbacks=False, 
                                     which_costs=config['WHICH_COSTS'],
                                     dt = dt, N_h=(iter_number+1)*N_h) 
-    ug = utils.pin_utils.get_u_grav(q0, robot)
+    ug = pin_utils.get_u_grav(q0, robot)
     xs_init = [x0 for i in range((iter_number+1)*N_h+1)]
     us_init = [ug  for i in range((iter_number+1)*N_h)]
     # Solve
@@ -100,12 +98,11 @@ def check_bellman(horizon=200, iter_number=1, WARM_START=0, PLOT=True):
     print("\n")
 
     # Solve OCP over [0,...,T] using k^th trained NN estimate as terminal model
-    resultspath = os.path.join(os.path.abspath(__file__ + "/../../"), "results")
     critic_path = os.path.join(resultspath, f"trained_models/dvp/Order_{1}/Horizon_{horizon}/")
     critic_name = os.path.join(critic_path, "eps_"+str(iter_number-1)+".pth")
     print("Selecting trained network : eps_"+str(iter_number-1)+".pth\n")
     Net = torch.load(critic_name)
-    ddp2 = utils.ocp_utils.init_DDP(robot, config, x0, critic=Net,
+    ddp2 = ocp_utils.init_DDP(robot, config, x0, critic=Net,
                                     callbacks=False, 
                                     which_costs=config['WHICH_COSTS'],
                                     dt = dt, N_h=N_h) 
@@ -114,7 +111,7 @@ def check_bellman(horizon=200, iter_number=1, WARM_START=0, PLOT=True):
         xs_init = [ddp1.xs[i] for i in range(N_h+1)]
         us_init = [ddp1.us[i]  for i in range(N_h)]
     else:
-        ug = utils.pin_utils.get_u_grav(q0, robot)
+        ug = pin_utils.get_u_grav(q0, robot)
         xs_init = [x0 for i in range(N_h+1)]
         us_init = [ug  for i in range(N_h)]
     ddp2.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
@@ -128,17 +125,16 @@ def check_bellman(horizon=200, iter_number=1, WARM_START=0, PLOT=True):
     print("\n")
     # Plot
     if(PLOT):   
-        d1 = utils.plot_utils.extract_ddp_data(ddp1)
-        d2 = utils.plot_utils.extract_ddp_data(ddp2)
+        d1 = plot_utils.extract_ddp_data(ddp1)
+        d2 = plot_utils.extract_ddp_data(ddp2)
         label1 ='OCP([0,...,'+ str(iter_number+1)+'T])'
         if(bool(WARM_START)):
             label2='OCP([0,...,T]) + V_'+str(iter_number)+' ( warm-started from OCP([0,...,'+str(iter_number+1)+'T]) )'
         else:
             label2='OCP([0,...,T]) + V_'+str(iter_number)
-        labels = [label1, label2]
-        fig, ax = utils.plot_utils.plot_ddp_results([d1, d2], labels=[label1, label2], SHOW=False, marker='o', sampling_plot=1)
-        utils.plot_utils.plot_refs(fig, ax, config)
-        plt.show()
+        fig, ax = plot_utils.plot_ddp_results([d1, d2], labels=[label1, label2], SHOW=False, marker='o', sampling_plot=1)
+        plot_utils.plot_refs(fig, ax, config, SHOW=True)
+
 
 if __name__=='__main__':
     # test_trained_single(sys.argv[1], int(sys.argv[2]))

@@ -1,6 +1,6 @@
 import numpy as np
 from pinocchio.robot_wrapper import RobotWrapper
-import utils.path_utils, utils.ocp_utils, utils.plot_utils, utils.pin_utils
+from utils import path_utils, ocp_utils, plot_utils, pin_utils
 from tqdm import tqdm
 import torch
 import pinocchio as pin
@@ -9,14 +9,11 @@ import matplotlib.pyplot as plt
 import time
 import os
 
-urdf_path = os.path.join(os.path.abspath(__file__ + "/../../"), 'config/robot_properties_kuka/urdf/iiwa.urdf')
-mesh_path = os.path.join(os.path.abspath(__file__ + "/../../"), 'config/robot_properties_kuka')
-robot = RobotWrapper.BuildFromURDF(urdf_path, mesh_path)
-config = utils.path_utils.load_config_file('static_reaching_task_ocp2')
+robot = RobotWrapper.BuildFromURDF(path_utils.kuka_urdf_path(), path_utils.kuka_mesh_path())
+config = path_utils.load_config_file('static_reaching_task_ocp2')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
-
 id_endeff = robot.model.getFrameId('contact')
 nq, nv = robot.model.nq, robot.model.nv
 nx = nq+nv
@@ -43,8 +40,8 @@ def samples_uniform(nb_samples:int):
     Samples initial states x = (q,v) within conservative state range
     '''
     samples = []
-    q_max = 0.85*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
-    v_max = 0.1*np.ones(nv) 
+    q_max = 0.9*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
+    v_max = 0.01*np.ones(nv) 
     x_max = np.concatenate([q_max, v_max])   
     for i in range(nb_samples):
         samples.append( np.random.uniform(low=-x_max, high=+x_max, size=(nx,)))
@@ -76,7 +73,7 @@ def samples_uniform_IK(nb_samples:int, q0=q0,
         y_EE = np.random.uniform(low=y_min, high=y_max, size=(6,))
         TSK_SPACE_SAMPLES.append( y_EE )
         # Inverse kinematics
-        q, _, _ = utils.pin_utils.IK_position(robot, q0, id_endeff, y_EE[:3],
+        q, _, _ = pin_utils.IK_position(robot, q0, id_endeff, y_EE[:3],
                                         DISPLAY=False, LOGS=False, DT=1e-1, IT_MAX=1000, EPS=1e-6)
         pin.computeJointJacobians(robot.model, robot.data, q)
         robot.framesForwardKinematics(q)
@@ -140,7 +137,7 @@ def create_train_data(critic=None,horizon=40,nb_samples=100):
         robot.computeJointJacobians(q0)
 
 
-        ddp = utils.ocp_utils.init_DDP(robot,
+        ddp = ocp_utils.init_DDP(robot,
                                   config,
                                   x0,
                                   critic=critic,
@@ -151,7 +148,7 @@ def create_train_data(critic=None,horizon=40,nb_samples=100):
 
 
         ddp.problem.x0  =   x0   
-        ug = utils.pin_utils.get_u_grav(q0, robot)
+        ug = pin_utils.get_u_grav(q0, robot)
         xs_init = [x0 for i in range(horizon+1)]
         us_init = [ug  for i in range(horizon)]
         # Solve
@@ -172,7 +169,7 @@ def create_train_data(critic=None,horizon=40,nb_samples=100):
             print(value)
 
             # Record ddp_data
-            ddp_data = utils.plot_utils.extract_ddp_data(ddp)
+            ddp_data = plot_utils.extract_ddp_data(ddp)
             DDPS.append(ddp_data)
             
         if len(v) == 100:
@@ -185,11 +182,11 @@ def create_train_data(critic=None,horizon=40,nb_samples=100):
     print(f"Dataset shape: {v.shape}")
 
     # Plot every 1/10 training data + add references
-    fig, ax = utils.plot_utils.plot_ddp_results(DDPS, 
+    fig, ax = plot_utils.plot_ddp_results(DDPS, 
                                                 which_plots=['x','u','p'], 
                                                 SHOW=False, 
                                                 sampling_plot=10)
-    utils.plot_utils.plot_refs(fig, ax, config, SHOW=False)
+    plot_utils.plot_refs(fig, ax, config, SHOW=False)
     # Save figures
     savepath = os.path.join(os.path.abspath(__file__ + "/../../"), "results/figures")
     fig['p'].savefig(os.path.join(savepath,'p_'+str(time.time())+'_.png'), dpi=200)

@@ -24,4 +24,13 @@ def load_config_file(config_name):
     config = load_yaml_file(config_file)
     return config
 
+# Get robot properties paths
+def kuka_urdf_path():
+    return os.path.join(os.path.abspath(__file__ + "/../../../"), 'config/robot_properties_kuka/iiwa.urdf')
 
+def kuka_mesh_path():
+    print(os.path.join(os.path.abspath(__file__ + "/../../../"), 'config/robot_properties_kuka'))
+    return os.path.join(os.path.abspath(__file__ + "/../../../"), 'config/robot_properties_kuka')
+
+def results_path():
+    return os.path.join(os.path.abspath(__file__ + "/../../../"), "results")
