@@ -123,44 +123,10 @@ def samples_uniform_IK_adaptive(nb_samples:int, q0=q0,
     return JNT_SPACE_SAMPLES
 
 
-# BONUS: implement adaptive sampling to get a better training set
-# def adaptive_sample(nb_samples:int, jnt_space_samples):
-#     # Check where the samples end up in Croco
-#     DDPS = []
-#     q_max = -np.inf*np.ones(nq)
-#     q_min = np.inf*np.ones(nq)
-#     v_max = -np.inf*np.ones(nq)
-#     v_min = np.inf*np.ones(nq)
-#     for x0 in jnt_space_samples:
-#         q0 = x0[:nq]
-#         robot.framesForwardKinematics(q0)
-#         robot.computeJointJacobians(q0)
-#         ddp = utils_amit.init_DDP(robot, config, x0, critic=None, callbacks=False, 
-#                                     which_costs=['translation', 
-#                                                 'ctrlReg', 
-#                                                 'stateReg', 
-#                                                 'stateLim'], dt=config['dt'], N_h=config['dt']) 
-#         ddp.problem.x0  =   x0   
-#         ug = utils_amit.get_u_grav(q0, robot)
-#         xs_init = [x0 for i in range(config['dt']+1)]
-#         us_init = [ug  for i in range(config['dt'])]
-#         # Solve
-#         ddp.solve(xs_init, us_init, maxiter=1000, isFeasible=False)
-#         DDPS.append(ddp)
-#         q = np.array(ddp.xs)[:,:nq]
-#         v = np.array(ddp.xs)[:,nv:]
-#         q_max = [max(q_max[j], [ np.max(q[:,i]) for i in range(nq) ][j]) for j in range(nq) ]
-#         q_min = [min(q_min[j], [ np.min(q[:,i]) for i in range(nq) ][j]) for j in range(nq) ]
-#         v_max = [max(v_max[j], [ np.max(v[:,i]) for i in range(nv) ][j]) for j in range(nv) ]
-#         v_min = [min(v_min[j], [ np.min(v[:,i]) for i in range(nv) ][j]) for j in range(nv) ]
-#     return JNT_SPACE_SAMPLES
-
-
-
-def create_train_data(critic=None,horizon=40,nb_samples=100):
+def create_train_data(critic=None,horizon=200,nb_samples=300):
     
 
-    points  =   samples_uniform_IK(nb_samples=nb_samples + 1000)
+    points  =   samples_uniform_IK_adaptive(nb_samples=nb_samples + 1000)
     np.random.shuffle(points)
     
     x0s     =   []
@@ -212,7 +178,7 @@ def create_train_data(critic=None,horizon=40,nb_samples=100):
             ddp_data = plot_utils.extract_ddp_data(ddp)
             DDPS.append(ddp_data)
             
-        if len(v) == 100:
+        if len(v) == nb_samples:
             break
 
     print(f"Rejected {rejected}")
@@ -235,7 +201,7 @@ def create_train_data(critic=None,horizon=40,nb_samples=100):
 
     return [x0s, v, vx]
 
-def make_training_dataloader(critic=None,horizon=40,nb_samples=100):
+def make_training_dataloader(critic=None,horizon=200,nb_samples=300):
     """
     TO be used specifically in training
     """
@@ -252,7 +218,7 @@ def make_training_dataloader(critic=None,horizon=40,nb_samples=100):
 
 def create_test_data():
 
-    datas    =  create_train_data(critic=None,horizon=800,nb_samples=50)
+    datas    =  create_train_data(critic=None,horizon=800,nb_samples=1000)
     datas    =  tensorize(datas)
 
     savepath = os.path.join(os.path.abspath(__file__ + "/../../"), "results/test_data")

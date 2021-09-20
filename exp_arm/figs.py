@@ -25,7 +25,6 @@ id_ee = robot.model.getFrameId('contact')
 resultspath = path_utils.results_path()
 path = os.path.join(resultspath, 'trained_models/dvp/Order_1/Horizon_200/eps_19.pth')
 
-
 # Load net 
 Net  = torch.load(path)
 DDPS_DATA =[]
@@ -34,9 +33,9 @@ N=10
 EPS_P = 0.1
 # Sample test points
 samples   =   samples_uniform_IK(nb_samples=N, eps_p=EPS_P, eps_v=0.0)
-
+# Ref for warm start
 ddp_ref = ocp_utils.init_DDP(robot, config, x0, critic=None, callbacks=False, which_costs=config['WHICH_COSTS'], dt=dt, N_h=N_h)
-
+# Solve for several samples 
 for k,x in enumerate(samples):
     robot.framesForwardKinematics(x[:nq])
     robot.computeJointJacobians(x[:nq])
@@ -59,12 +58,6 @@ def animate(data):
     viewer = robot.viz.viewer
     gui = viewer.gui
     import time
-    # Check samples
-    # gui.addSphere('world/p_des', .02, [1. ,0 ,0, 1.])  
-    # gui.addBox('world/p_bounds',   2*EPS_P, 2*EPS_P, 2*EPS_P,  [1., 1., 1., 0.3]) # depth(x),length(y),height(z), color
-    # # tf_des = pin.utils.se3ToXYZQUAT(pin.SE3(p_))
-    # gui.applyConfiguration('world/p_des', tf_des)
-    # gui.applyConfiguration('world/p_bounds', tf_des)
     for k,d in enumerate(data):
         print("Sample "+str(k)+"/"+str(len(data)))
         q = np.array(d['xs'])[:,:nq]

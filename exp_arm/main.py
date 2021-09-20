@@ -21,7 +21,7 @@ def establish_baselines():
     N_EPOCHS            =   1000000
     LR                  =   1.0e-3
     BATCHSIZE           =   64
-    TRAIN_SIZE          =   100
+    TRAIN_SIZE          =   300
     TEST_SIZE           =   100
     NR                  =   3
     NH                  =   3
