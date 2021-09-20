@@ -30,7 +30,7 @@ Net  = torch.load(path)
 DDPS_DATA =[]
 WS = False
 N=10
-EPS_P = 0.1
+EPS_P = 0.3
 # Sample test points
 samples   =   samples_uniform_IK(nb_samples=N, eps_p=EPS_P, eps_v=0.0)
 # Ref for warm start

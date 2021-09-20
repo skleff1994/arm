@@ -21,7 +21,7 @@ N_h = config['N_h']
 dt = config['dt']
 id_ee = robot.model.getFrameId('contact')
 resultspath = path_utils.results_path()
-path = os.path.join(resultspath, 'trained_models/dvp/Order_1/Horizon_200/eps_19.pth')
+path = os.path.join(resultspath, 'trained_models/dvp/Order_1/Horizon_200/eps_9.pth')
 
 
 

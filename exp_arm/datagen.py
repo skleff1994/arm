@@ -218,7 +218,7 @@ def make_training_dataloader(critic=None,horizon=200,nb_samples=300):
 
 def create_test_data():
 
-    datas    =  create_train_data(critic=None,horizon=800,nb_samples=1000)
+    datas    =  create_train_data(critic=None,horizon=800,nb_samples=50)
     datas    =  tensorize(datas)
 
     savepath = os.path.join(os.path.abspath(__file__ + "/../../"), "results/test_data")
