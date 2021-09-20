@@ -41,7 +41,7 @@ def samples_uniform(nb_samples:int):
     '''
     samples = []
     q_max = 0.9*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
-    v_max = 0.01*np.ones(nv) 
+    v_max = 0.01*np.zeros(nv) 
     x_max = np.concatenate([q_max, v_max])   
     for i in range(nb_samples):
         samples.append( np.random.uniform(low=-x_max, high=+x_max, size=(nx,)))
@@ -52,7 +52,7 @@ def samples_uniform_IK(nb_samples:int, q0=q0,
                             p_des=config['p_des'], 
                             v_des=config['v_des'], 
                             id_endeff=id_endeff, 
-                            eps_p=0.05, eps_v=0.01):
+                            eps_p=0.1, eps_v=0.01):
     '''
     Sample task space (EE pos and vel) and apply IK 
     in order to get corresponding joint space samples
@@ -82,6 +82,46 @@ def samples_uniform_IK(nb_samples:int, q0=q0,
         x = np.concatenate([q, vq])
         JNT_SPACE_SAMPLES.append( x )
     return JNT_SPACE_SAMPLES
+
+# Sampling from conservative range of task space
+def samples_uniform_IK_adaptive(nb_samples:int, q0=q0, 
+                                p_des=config['p_des'], 
+                                v_des=config['v_des'], 
+                                id_endeff=id_endeff, 
+                                eps_p=[0.05, 0.15, 0.25], eps_v=[0.005, 0.01, 0.015]):
+    # 100 sampled in each 
+    '''
+    Sample task space (EE pos and vel) and apply IK 
+    in order to get corresponding joint space samples
+    use 3 boxes in task space
+    '''
+    # Sample several states 
+    N_SAMPLES = nb_samples
+    TSK_SPACE_SAMPLES = []
+    JNT_SPACE_SAMPLES = []
+    # Define bounds in cartesian space to sample (p_EE,v_EE) around (p_des,0)
+    p_min = [p_des - np.ones(3)*eps for eps in eps_p]; p_max = [p_des + np.ones(3)*eps for eps in eps_p]
+    v_min = [v_des - np.ones(3)*eps for eps in eps_v]; v_max = [v_des + np.ones(3)*eps for eps in eps_v]
+    y_min = [np.concatenate([p_min[i], v_min[i]]) for i in range(3)]
+    y_max = [np.concatenate([p_max[i], v_max[i]]) for i in range(3)]
+    print("Sampling "+str(N_SAMPLES)+" states...")
+    # Generate samples (uniform)
+    for box in range(3):
+        for i in range(N_SAMPLES//3):
+            # Task space sample
+            y_EE = np.random.uniform(low=y_min[box], high=y_max[box], size=(6,))
+            TSK_SPACE_SAMPLES.append( y_EE )
+            # Inverse kinematics
+            q, _, _ = pin_utils.IK_position(robot, q0, id_endeff, y_EE[:3],
+                                            DISPLAY=False, LOGS=False, DT=1e-1, IT_MAX=1000, EPS=1e-6)
+            pin.computeJointJacobians(robot.model, robot.data, q)
+            robot.framesForwardKinematics(q)
+            J_q = pin.getFrameJacobian(robot.model, robot.data, id_endeff, pin.ReferenceFrame.LOCAL) 
+            vq = np.linalg.pinv(J_q)[:,:3].dot(y_EE[3:]) 
+            x = np.concatenate([q, vq])
+            JNT_SPACE_SAMPLES.append( x )
+    return JNT_SPACE_SAMPLES
+
 
 # BONUS: implement adaptive sampling to get a better training set
 # def adaptive_sample(nb_samples:int, jnt_space_samples):
@@ -182,8 +222,7 @@ def create_train_data(critic=None,horizon=40,nb_samples=100):
     print(f"Dataset shape: {v.shape}")
 
     # Plot every 1/10 training data + add references
-    fig, ax = plot_utils.plot_ddp_results(DDPS, 
-                                                which_plots=['x','u','p'], 
+    fig, ax = plot_utils.plot_ddp_results(DDPS, which_plots=['x','u','p'], 
                                                 SHOW=False, 
                                                 sampling_plot=10)
     plot_utils.plot_refs(fig, ax, config, SHOW=False)

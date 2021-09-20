@@ -15,7 +15,7 @@ def establish_baselines():
 
     ##################################### HYPER PARAMS FOR THE EXP
     NX                  =   14
-    EPISODES            =   20
+    EPISODES            =   10
     EARLY_STOP_V        =   1.0e-6
     EARLY_STOP_VX       =   1.0e-6 
     N_EPOCHS            =   1000000

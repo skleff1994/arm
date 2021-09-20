@@ -40,6 +40,8 @@ def plot_ddp_results(DDPS_DATA, which_plots='all', labels=None, SHOW=False, mark
     '''
     if(type(DDPS_DATA) != list):
         DDPS_DATA = [DDPS_DATA]
+    if(labels==None):
+        labels=[None for k in range(len(DDPS_DATA))]
     for k,d in enumerate(DDPS_DATA):
         # Return figs and axes object in case need to overlay new plots
         if(k==0):

@@ -23,78 +23,51 @@ N_h = config['N_h']
 dt = config['dt']
 id_ee = robot.model.getFrameId('contact')
 resultspath = path_utils.results_path()
+path = os.path.join(resultspath, 'trained_models/dvp/Order_1/Horizon_200/eps_19.pth')
 
-def test_trained_single(critic_path, PLOT=False, x0=x0, logs=True):
-    """
-    Solve an OCP using the trained NN as a terminal cost
-    """
-    # Load trained NN 
-    Net  = torch.load(critic_path)
-    # Init and solve
-    q0 = x0[:nq]
-    robot.framesForwardKinematics(q0)
-    robot.computeJointJacobians(q0)
-    ddp = ocp_utils.init_DDP(robot, config, x0, critic=Net, 
-                                   callbacks=logs, 
-                                   which_costs=config['WHICH_COSTS'],
-                                   dt=dt, N_h=N_h) 
+
+# Load net 
+Net  = torch.load(path)
+DDPS_DATA =[]
+WS = False
+N=10
+EPS_P = 0.1
+# Sample test points
+samples   =   samples_uniform_IK(nb_samples=N, eps_p=EPS_P, eps_v=0.0)
+
+ddp_ref = ocp_utils.init_DDP(robot, config, x0, critic=None, callbacks=False, which_costs=config['WHICH_COSTS'], dt=dt, N_h=N_h)
+
+for k,x in enumerate(samples):
+    robot.framesForwardKinematics(x[:nq])
+    robot.computeJointJacobians(x[:nq])
+    ddp = ocp_utils.init_DDP(robot, config, x, critic=Net, 
+                                    callbacks=False, 
+                                    which_costs=config['WHICH_COSTS'],
+                                    dt=dt, N_h=N_h) 
     ug = pin_utils.get_u_grav(q0, robot)
-    xs_init = [x0 for i in range(N_h+1)]
-    us_init = [ug  for i in range(N_h)]
-    ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
-    ddp_data = plot_utils.extract_ddp_data(ddp)
-    # Plot
-    if(PLOT):
-        fig, ax = plot_utils.plot_ddp_results(ddp_data, SHOW=False)
-        plot_utils.plot_refs(fig, ax, config)
-    return ddp_data
-
-def test_trained_multiple(critic_path, N=20, PLOT=False):
-    """
-    Solve N OCPs using the trained NN as a terminal cost
-    from sampled test points x0
-    """
-    # Sample test points
-    samples   =   samples_uniform(nb_samples=N)
+    ddp_ref.problem.x0 = x
+    ddp_ref.solve( [x0 for i in range(N_h+1)] , [ug  for i in range(N_h)], maxiter=config['maxiter'], isFeasible=False)
+    # Warm start using the croco ref
+    xs_init = [ddp_ref.xs[i] for i in range(N_h+1)]
+    us_init = [ddp_ref.us[i]  for i in range(N_h)]
+    ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
     # Solve for each sample and record
-    DDPS_DATA = [test_trained_single(critic_path, x0=x, PLOT=False, logs=False) for x in samples]
-    # Plot results
-    if(PLOT):
-        fig, ax = plot_utils.plot_ddp_results(DDPS_DATA, SHOW=False, sampling_plot=1)
-        plot_utils.plot_refs(fig, ax, config)
-    return DDPS_DATA, samples
+    ddp_data = plot_utils.extract_ddp_data(ddp)
+    DDPS_DATA.append(ddp_data)
 
-
-
-# Fig. 1 : showing long crocoddyl trajectory matching a short croco+VF trajectory
-
-# Fig. 2 : showing trajectories output by croco+VF
-
-#  Video 1 : sampling training set in Gepetto Viewer
-
-#  Video 2 : running a bunch of trajs in Gepetto Viewer
-path = '/home/skleff/misc_repos/arm/results/trained_models/dvp/Order_1/Horizon_200/eps_19.pth'
-DDPS_DATA, _ = test_trained_multiple(path, N=10, PLOT=False)
-
-viewer = robot.viz.viewer
-gui = viewer.gui
-import time
-# gui.addSphere('world/p_des', .02, [1. ,0 ,0, 1.])  
-# gui.addBox('world/p_bounds',   2*eps_p, 2*eps_p, 2*eps_p,  [1., 1., 1., 0.3]) # depth(x),length(y),height(z), color
-# tf_des = pin.utils.se3ToXYZQUAT(M_des)
-# gui.applyConfiguration('world/p_des', tf_des)
-# gui.applyConfiguration('world/p_bounds', tf_des)
-# Check samples
-for k,d in enumerate(DDPS_DATA):
-    print("Sample "+str(k)+"/"+str(len(DDPS_DATA)))
-    q = np.array(d['xs'])[:,:nq]
-    for i in range(N_h+1):
-        robot.display(q[i])
-    # Update model and display sample
-    # robot.framesForwardKinematics(sample[:nq])
-    # robot.computeJointJacobians(sample[:nq])
-    # M_ = robot.data.oMf[id_endeff]
-    # tf_ = pin.utils.se3ToXYZQUAT(M_)
-    # gui.applyConfiguration('world/sample'+str(k), tf_)
-    # gui.refresh()
-        time.sleep(dt)
+def animate(data):
+    viewer = robot.viz.viewer
+    gui = viewer.gui
+    import time
+    # Check samples
+    # gui.addSphere('world/p_des', .02, [1. ,0 ,0, 1.])  
+    # gui.addBox('world/p_bounds',   2*EPS_P, 2*EPS_P, 2*EPS_P,  [1., 1., 1., 0.3]) # depth(x),length(y),height(z), color
+    # # tf_des = pin.utils.se3ToXYZQUAT(pin.SE3(p_))
+    # gui.applyConfiguration('world/p_des', tf_des)
+    # gui.applyConfiguration('world/p_bounds', tf_des)
+    for k,d in enumerate(data):
+        print("Sample "+str(k)+"/"+str(len(data)))
+        q = np.array(d['xs'])[:,:nq]
+        for i in range(N_h+1):
+            robot.display(q[i])
+            time.sleep(dt)
