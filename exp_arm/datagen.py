@@ -37,19 +37,20 @@ def tensorize(arrays):
 
 
 
-# Sampling conservative range for the state : 95% q limits and [-0.5, +0.5] v limits
+# Sampling from conservative range of state space
 def samples_uniform(nb_samples:int):
     '''
     Samples initial states x = (q,v) within conservative state range
     '''
     samples = []
     q_max = 0.85*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
-    v_max = 0.1*np.ones(nv) #np.array([1.4835, 1.4835, 1.7453, 1.309 , 2.2689, 2.3562, 2.3562])  #np.zeros(nv) 
+    v_max = 0.1*np.ones(nv) 
     x_max = np.concatenate([q_max, v_max])   
     for i in range(nb_samples):
         samples.append( np.random.uniform(low=-x_max, high=+x_max, size=(nx,)))
     return np.array(samples)
 
+# Sampling from conservative range of task space
 def samples_uniform_IK(nb_samples:int, q0=q0, 
                             p_des=config['p_des'], 
                             v_des=config['v_des'], 
