@@ -17,62 +17,54 @@ config = utils.path_utils.load_config_file('static_reaching_task_ocp2')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
+robot.framesForwardKinematics(q0)
+robot.computeJointJacobians(q0)
 nq=robot.model.nq; nv=robot.model.nv; nu=nq; nx=nq+nv
 N_h = config['N_h']
 dt = config['dt']
 id_ee = robot.model.getFrameId('contact')
 
 
-def test_trained(critic_path):
+def test_trained_single(critic_path, PLOT=False, x0=x0, logs=True):
     """
     Solve an OCP using the trained NN as a terminal cost
     """
     # Load trained NN 
     Net  = torch.load(critic_path)
+    # Init and solve
+    q0 = x0[:nq]
+    robot.framesForwardKinematics(q0)
+    robot.computeJointJacobians(q0)
     ddp = utils.ocp_utils.init_DDP(robot, config, x0, critic=Net, 
-                                   callbacks=True, 
+                                   callbacks=logs, 
                                    which_costs=config['WHICH_COSTS'],
                                    dt=dt, N_h=N_h) 
-    # Warm-start
     ug = utils.pin_utils.get_u_grav(q0, robot)
     xs_init = [x0 for i in range(N_h+1)]
     us_init = [ug  for i in range(N_h)]
-    # Solve
     ddp.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
     # Plot
-    utils.plot_utils.plot_ddp_results([ddp], robot, SHOW=True)
+    if(PLOT):
+        utils.plot_utils.plot_ddp_results([ddp], robot, SHOW=True)
+    return ddp
 
 
-def test_trained(critic_path, N=20):
+def test_trained_multiple(critic_path, N=20, PLOT=False):
     """
     Solve N OCPs using the trained NN as a terminal cost
     from sampled test points x0
     """
     # Sample test points
-    points  =   samples_uniform_IK(nb_samples=N, eps_p=0.5, eps_v=0.1)
-    # Get trained NN to be tested
-    Net  = torch.load(critic_path)
-    DDPS    =   []
-    for x0 in points:
-        q0 = x0[:nq]
-        robot.framesForwardKinematics(q0)
-        robot.computeJointJacobians(q0)
-        ddp = utils.ocp_utils.init_DDP(robot, config, x0, critic=Net,
-                                       callbacks=False, 
-                                       which_costs=config['WHICH_COSTS'],
-                                       dt=dt, N_h=N_h) 
-        ddp.problem.x0  =   x0   
-        ug = utils.pin_utils.get_u_grav(q0, robot)
-        xs_init = [x0 for i in range(N_h+1)]
-        us_init = [ug  for i in range(N_h)]
-        # Solve
-        ddp.solve(xs_init, us_init, maxiter=1000, isFeasible=False)
-        DDPS.append(ddp)
+    samples  =   samples_uniform_IK(nb_samples=N, eps_p=0.05, eps_v=0.01)
+    # Solve for each sample and record
+    DDPS    =   [test_trained_single(critic_path, x0=x, PLOT=False, logs=False) for x in samples]
     # Plot results
-    utils.plot_utils.plot_ddp_results(DDPS, robot, SHOW=True, sampling_plot=1)
+    if(PLOT):
+        utils.plot_utils.plot_ddp_results(DDPS, robot, SHOW=True, sampling_plot=1)
+    return DDPS
 
 
-def check_bellman(critic_path, iter_number=1, WARM_START=0, PLOT=True):
+def check_bellman(horizon=200, iter_number=1, WARM_START=0, PLOT=True):
     """
     Check that recursive property still holds on trained model: 
          - solve using croco over [0,..,(k+1)T]
@@ -101,7 +93,9 @@ def check_bellman(critic_path, iter_number=1, WARM_START=0, PLOT=True):
     print("\n")
 
     # Solve OCP over [0,...,T] using k^th trained NN estimate as terminal model
-    critic_name = critic_path+"/eps_"+str(iter_number-1)+".pth"
+    resultspath = os.path.join(os.path.abspath(__file__ + "/../../"), "results")
+    critic_path = os.path.join(resultspath, f"trained_models/dvp/Order_{1}/Horizon_{horizon}/")
+    critic_name = os.path.join(critic_path, "eps_"+str(iter_number-1)+".pth")
     print("Selecting trained network : eps_"+str(iter_number-1)+".pth\n")
     Net = torch.load(critic_name)
     ddp2 = utils.ocp_utils.init_DDP(robot, config, x0, critic=Net,
@@ -195,6 +189,6 @@ def check_bellman(critic_path, iter_number=1, WARM_START=0, PLOT=True):
 
 
 if __name__=='__main__':
-    test_trained(sys.argv[1], int(sys.argv[2]))
-    # test_trained(sys.argv[1])
+    # test_trained_single(sys.argv[1], int(sys.argv[2]))
+    # test_trained_multiple(sys.argv[1], int(sys.argv[2]), int(sys.argv[-1]))
     check_bellman(sys.argv[1], int(sys.argv[2]), int(sys.argv[-1])) #, sys.argv[4])
