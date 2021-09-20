@@ -1,16 +1,11 @@
-import numpy as np
-import crocoddyl
 import torch
-from tqdm import tqdm
 from pathlib import Path
 import pickle
 
-
 from critic import Critic
-from action_model_critic import ActionModelCritic
 from learner import Learner
 from datagen import make_training_dataloader
-
+import os
 
 
 def establish_baselines():
@@ -28,11 +23,12 @@ def establish_baselines():
     NR                  =   3
     NH                  =   3
     NHU                 =   64
-    HORIZON             =   200
+    HORIZON             =   50
     
 
     ############################################################################################# LOGGER
-    logdir = f"./trained_models/dvp/Order_{1}/Horizon_{HORIZON}/"
+    resultspath = os.path.join(os.path.abspath(__file__ + "/../../"), "results")
+    logdir = os.path.join(resultspath, f"trained_models/dvp/Order_{1}/Horizon_{HORIZON}/")
 
     Path(logdir).mkdir(parents=True, exist_ok=True)
 
@@ -48,7 +44,7 @@ def establish_baselines():
     ################################################################################################
 
     ### Get test data
-    test_data   =   torch.load("test_data.pth")
+    test_data   =   torch.load(os.path.join(resultspath, "test_data/test_data.pth"))
 
 
     ################################################################################################

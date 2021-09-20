@@ -36,6 +36,7 @@ p_des: [-0.3, -0.4, 0.5]
 frameTranslationWeights: [1., 1., 1.]
 frameTranslationWeight: 2.
 frameTranslationWeightTerminal: 2.
+v_des: [0., 0., 0.]
 # Frame velocity
 # frameVelocityWeights:  [1., 1., 1., 1., 1., 1.]
 # frameVelocityWeight: .01

@@ -1,20 +1,18 @@
-# import crocoddyl
 import numpy as np
-# import pinocchio as pin
 from pinocchio.robot_wrapper import RobotWrapper
-from robot_properties_kuka.config import IiwaConfig
-import utils_amit
+import utils.path_utils, utils.ocp_utils, utils.plot_utils, utils.pin_utils
 from tqdm import tqdm
 import torch
 import pinocchio as pin
 
 import matplotlib.pyplot as plt
 import time
+import os
 
-urdf_path = '/home/skleff/misc_repos/arm/exp_arm/robot_properties_kuka/urdf/iiwa.urdf'
-mesh_path = '/home/skleff/misc_repos/arm/exp_arm/robot_properties_kuka' 
+urdf_path = os.path.join(os.path.abspath(__file__ + "/../../"), 'config/robot_properties_kuka/urdf/iiwa.urdf')
+mesh_path = os.path.join(os.path.abspath(__file__ + "/../../"), 'config/robot_properties_kuka')
 robot = RobotWrapper.BuildFromURDF(urdf_path, mesh_path)
-config = utils_amit.load_config_file('static_reaching_task_ocp2')
+config = utils.path_utils.load_config_file('static_reaching_task_ocp2')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
 x0 = np.concatenate([q0, v0])   
@@ -56,10 +54,14 @@ def tensorize(arrays):
 
 def samples(nb_samples:int, q0=q0, 
                             p_des=config['p_des'], 
-                            v_des=np.zeros(3), 
+                            v_des=config['v_des'], 
                             id_endeff=id_endeff, 
                             eps_p=0.05, eps_v=0.01,
                             SUBSAMPLING=False):
+    '''
+    Sample task space (EE pos and vel) and apply IK 
+    in order to get corresponding joint space samples
+    '''
     # Sample several states 
     N_SAMPLES = nb_samples
     TSK_SPACE_SAMPLES = []
@@ -78,7 +80,7 @@ def samples(nb_samples:int, q0=q0,
         # print(" Task sample  = ", y_EE)
         # print("Sample "+str(i)+"/"+str(N_SAMPLES))
         # IK
-        q, _, _ = utils_amit.IK_position(robot, q0, id_endeff, y_EE[:3],
+        q, _, _ = utils.pin_utils.IK_position(robot, q0, id_endeff, y_EE[:3],
                                         DISPLAY=False, LOGS=False, DT=1e-1, IT_MAX=1000, EPS=1e-6)
         pin.computeJointJacobians(robot.model, robot.data, q)
         robot.framesForwardKinematics(q)
@@ -125,7 +127,6 @@ def samples(nb_samples:int, q0=q0,
 
 def create_train_data(critic=None,horizon=40,nb_samples=100):
     
-    #ddp     =   create_solver(critic=critic,horizon=horizon)
 
     points  =   samples(nb_samples=nb_samples + 1000)
     np.random.shuffle(points)
@@ -144,7 +145,7 @@ def create_train_data(critic=None,horizon=40,nb_samples=100):
         robot.computeJointJacobians(q0)
 
 
-        ddp = utils_amit.init_DDP(robot,
+        ddp = utils.ocp_utils.init_DDP(robot,
                                   config,
                                   x0,
                                   critic=critic,
@@ -152,14 +153,13 @@ def create_train_data(critic=None,horizon=40,nb_samples=100):
                                   which_costs=['translation', 
                                                'ctrlReg', 
                                                'stateReg', 
-                                               #'velocity',
                                                'stateLim'],
                                   dt = None,
                                   N_h=horizon) 
 
 
         ddp.problem.x0  =   x0   
-        ug = utils_amit.get_u_grav(q0, robot)
+        ug = utils.pin_utils.get_u_grav(q0, robot)
         xs_init = [x0 for i in range(horizon+1)]
         us_init = [ug  for i in range(horizon)]
         # Solve
@@ -199,21 +199,22 @@ def create_train_data(critic=None,horizon=40,nb_samples=100):
     v       =   np.array( v ).reshape(-1,1)
     print(f"Dataset shape: {v.shape}")
 
-    # plot training data
-    fig, ax = utils_amit.plot_ddp_results(DDPS, robot, 
+    # Plot every 1/10 training data
+    fig, ax = utils.plot_utils.plot_ddp_results(DDPS, robot, 
                                                 which_plots=['x','u','p'], 
                                                 SHOW=False, 
                                                 sampling_plot=10)
-    # ref on plots
-    p_des = np.asarray(config['p_des']) 
+    # Add EE reference pos, vel on plots
     for i in range(3):
-        ax['p'][i].plot(np.linspace(0, horizon*config['dt'], horizon+1), [p_des[i]]*(horizon+1), 'r-.', label='Desired')
-    handles_x, labels_x = ax['p'][i].get_legend_handles_labels()
+        ax['p'][i,0].plot(np.linspace(0, horizon*config['dt'], horizon+1), [np.asarray(config['p_des']) [i]]*(horizon+1), 'r-.', label='Desired')
+        ax['p'][i,1].plot(np.linspace(0, horizon*config['dt'], horizon+1), [np.asarray(config['v_des']) [i]]*(horizon+1), 'r-.', label='Desired')
+    handles_x, labels_x = ax['p'][i,0].get_legend_handles_labels()
     fig['p'].legend(handles_x, labels_x, loc='upper right', prop={'size': 16})
-    # Save
-    fig['p'].savefig('p_'+str(time.time())+'_.png', dpi=200)
-    fig['x'].savefig('x_'+str(time.time())+'_.png', dpi=200)
-    fig['u'].savefig('u_'+str(time.time())+'_.png', dpi=200)
+    # Save figures
+    savepath = os.path.join(os.path.abspath(__file__ + "/../../"), "results/figures")
+    fig['p'].savefig(os.path.join(savepath,'p_'+str(time.time())+'_.png'), dpi=200)
+    fig['x'].savefig(os.path.join(savepath,'x_'+str(time.time())+'_.png'), dpi=200)
+    fig['u'].savefig(os.path.join(savepath,'u_'+str(time.time())+'_.png'), dpi=200)
     plt.close('all')
 
     return [x0s, v, vx]
@@ -238,7 +239,8 @@ def create_test_data():
     datas    =  create_train_data(critic=None,horizon=800,nb_samples=50)
     datas    =  tensorize(datas)
 
-    torch.save(datas,"test_data.pth") 
+    savepath = os.path.join(os.path.abspath(__file__ + "/../../"), "results/test_data")
+    torch.save(datas, os.path.join(savepath, "test_data.pth"))
 
 if __name__=='__main__':
     create_test_data()
