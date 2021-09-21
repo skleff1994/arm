@@ -4,13 +4,13 @@
 simu_freq: 1000
 ctrl_freq: 250   # Control frequency
 plan_freq: 250     # Planning frequency
-T_tot: 10.        # Simu duration (s)
+T_tot: 6.        # Simu duration (s)
 INIT_LOG: True
 SAVE_DATA: True
-init_log_display_time: 1
+init_log_display_time: 5
 # OCP
 dt: 0.03                               # OCP integration step 
-N_h: 200                               # Horizon length in nodes
+N_h: 70                               # Horizon length in nodes
 maxiter: 1000                          # Max number of iterations in DDP solver
 q0: [0.1, 0.7, 0., 0.7, -0.5, 1.5, 0.] # Initial robot joint configuration
 dq0: [0.,0.,0.,0.,0.,0.,0.]            # Initial robot joint velocity

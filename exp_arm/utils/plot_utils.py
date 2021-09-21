@@ -177,11 +177,11 @@ def plot_ddp_endeff(ddp_data, fig=None, ax=None, label=None, SHOW=True, marker=N
     xyz = ['x','y','z']
     for i in range(3):
         # Positions
-        ax[i,0].plot(tspan, p_EE[:,i], linestyle='-', marker=marker, label=label)
+        ax[i,0].plot(tspan, p_EE[:,i], linestyle='-', marker=marker)#, label=label)
         ax[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
         ax[i,0].grid(True)
         #Velocities
-        ax[i,1].plot(tspan, v_EE[:,i], linestyle='-', marker=marker, label=label)
+        ax[i,1].plot(tspan, v_EE[:,i], linestyle='-', marker=marker)#, label=label)
         ax[i,1].set_ylabel('$V^{EE}_%s$ (m)'%xyz[i], fontsize=16)
         ax[i,1].grid(True)
     ax[-1,0].set_xlabel('Time (s)', fontsize=16)
