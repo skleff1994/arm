@@ -211,6 +211,8 @@ def plot_refs(fig, ax, config, SHOW=True):
     if(SHOW):
         plt.show()
     
+    return fig, ax
+    
     # # Add torque refs
     # q = np.array(ddp_data['xs'])[:,:nq]
     # ureg_ref = np.zeros((N_h, nu))

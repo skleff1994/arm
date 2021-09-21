@@ -138,5 +138,5 @@ def check_bellman(horizon=200, iter_number=1, WARM_START=0, PLOT=True):
 
 if __name__=='__main__':
     # test_trained_single(sys.argv[1], int(sys.argv[2]))
-    # test_trained_multiple(sys.argv[1], int(sys.argv[2]), int(sys.argv[-1]))
-    check_bellman(sys.argv[1], int(sys.argv[2]), int(sys.argv[-1])) #, sys.argv[4])
+    test_trained_multiple(sys.argv[1], int(sys.argv[2]), int(sys.argv[-1]))
+    # check_bellman(sys.argv[1], int(sys.argv[2]), int(sys.argv[-1])) #, sys.argv[4])

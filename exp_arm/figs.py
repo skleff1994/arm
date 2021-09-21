@@ -9,6 +9,7 @@ from pinocchio.robot_wrapper import RobotWrapper
 import pinocchio as pin
 from utils import path_utils
 import time
+import random
 
 # Load config
 config = path_utils.load_config_file('static_reaching_task_ocp2')
@@ -31,11 +32,13 @@ Net  = torch.load(path)
 # Test the learned V.F.
 DDPS_DATA =[]
 WS = False
-N=10
-EPS_P = 0.4
+N=20
+EPS_P = 0.3
 # Sample test points
-# samples = samples_uniform_IK(nb_samples=N, eps_p=EPS_P, eps_v=0.0)
-samples = samples_uniform(nb_samples=N)
+samples = samples_uniform_IK(nb_samples=N//2, eps_p=EPS_P, eps_v=0.0)
+samples.extend(samples_uniform(nb_samples=N//2, eps_q=1., eps_v=0.))
+random.shuffle(samples)
+# samples = samples_uniform(nb_samples=N, eps_q=1., eps_v=0.)
 # Ref for warm start
 ddp_ref = ocp_utils.init_DDP(robot, config, x0, critic=None, callbacks=False, which_costs=config['WHICH_COSTS'], dt=dt, N_h=N_h)
 # Solve for several samples 
@@ -57,6 +60,13 @@ for k,x in enumerate(samples):
     ddp_data = plot_utils.extract_ddp_data(ddp)
     DDPS_DATA.append(ddp_data)
 
+from test_trained import test_trained_single
+DDPS_DATA = [test_trained_single(path, x0=x, PLOT=False, logs=False) for x in samples]
+# Plot results
+fig, ax = plot_utils.plot_ddp_results(DDPS_DATA, SHOW=False, sampling_plot=1)
+plot_utils.plot_refs(fig, ax, config)
+# remove legent p
+ax['p'].get_legend().remove()
 
 def animate(data, sleep=dt):
     M_des = robot.data.oMf[id_ee].copy()
