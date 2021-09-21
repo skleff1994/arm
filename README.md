@@ -9,7 +9,7 @@ Code for Differential Value Programming (DVP) implementation and example on the 
 
 # How to use it ?
 
-Install PyTorch and Crocoddyl first if you don't have them already installed, then 
+Install PyTorch, Crocoddyl and Pinocchio first if you don't have them already installed, then 
 
 ```
 git clone https://github.com/skleff1994/arm.git
