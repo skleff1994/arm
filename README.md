@@ -14,9 +14,9 @@ Install PyTorch, Crocoddyl and Pinocchio first if you don't have them already in
 ```
 git clone https://github.com/skleff1994/arm.git
 ``` 
-
-- First generate a test set by running `exp_arm/datagen.py`
-- Then launch the training using `exp_arm/main.py`
+Then `cd exp_arm/` and
+- First generate a test set by running `python datagen.py`
+- Then launch the training using `python main.py`
 
 The trained NN will be saved in `results/trained_models` and figures of the training sets generated throughout iterations will be saved in `results/figures`. 
 
