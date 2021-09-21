@@ -1,3 +1,8 @@
+# This files contains the code to generate the video in Gepetto viewer
+# testing the learned VF by generating trajectories croco(0..T)+VF 
+# starting from random states
+# Author : Sébastien Kleff
+# Date : 09/21/2021
 
 import numpy as np
 from utils import path_utils, ocp_utils, plot_utils, pin_utils

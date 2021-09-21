@@ -1,3 +1,12 @@
+# This files contains the code to debug issues with learned VF
+# Solve OCP from a given x0 using
+#  - Croco on long horizon (ddp1)
+#  - Croco short horizon + learned VF (ddp2) using ddp1 as warm-start
+#  - Croco short horizon (ddp3)
+# starting from random states
+# Author : Sébastien Kleff
+# Date : 09/21/2021
+
 import numpy as np
 from utils import path_utils, ocp_utils, plot_utils, pin_utils
 import torch
@@ -73,7 +82,8 @@ ddp1 = ocp_utils.init_DDP(robot, config, x0, critic=None,
 ug = pin_utils.get_u_grav(q0, robot)
 xs_init = [x0 for i in range((iter_number+1)*N_h+1)]
 us_init = [ug  for i in range((iter_number+1)*N_h)]
-# Solve
+
+# Solve OCP over [0,...,T] using Crocoddyl + learned VF
 ddp1.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=True)
 Net = torch.load(path)
 ddp2 = ocp_utils.init_DDP(robot, config, x0, critic=Net,
@@ -92,7 +102,7 @@ d2 = plot_utils.extract_ddp_data(ddp2)
 label1 ='OCP([0,...,'+ str(iter_number+1)+'T])'
 label2='OCP([0,...,T]) + V_'+str(iter_number)+' ( warm-started from OCP([0,...,'+str(iter_number+1)+'T]) )'
 
-# Add plot of Croco [0,..T]
+# Add plot of Croco [0,..T] to compare
 label3='OCP([0,...,T])'
 ddp3 = ocp_utils.init_DDP(robot, config, x0, critic=None, callbacks=True, which_costs=config['WHICH_COSTS'], dt=dt, N_h=N_h)
 ug = pin_utils.get_u_grav(q0, robot)
@@ -104,16 +114,3 @@ d3 = plot_utils.extract_ddp_data(ddp3)
 # Plot stuff
 fig, ax = plot_utils.plot_ddp_results([d1, d2, d3], labels=[label1, label2, label3], SHOW=False, marker='o', sampling_plot=1)
 plot_utils.plot_refs(fig, ax, config, SHOW=True)
-
-
-
-# DDPS_DATA, samples = test_trained_multiple(path, N=10, PLOT=False)
-# viewer = robot.viz.viewer
-# gui = viewer.gui
-# import time
-# for k,d in enumerate(DDPS_DATA):
-#     print("Sample "+str(k)+"/"+str(len(DDPS_DATA)))
-#     q = np.array(d['xs'])[:,:nq]
-#     for i in range(N_h+1):
-#         robot.display(q[i])
-#         time.sleep(dt)
