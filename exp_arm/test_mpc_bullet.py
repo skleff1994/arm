@@ -162,24 +162,26 @@ print('--------------------------------')
 # # # # # # # # # # # #
 # Post-process EE trajectories + record in sim data
 print('Post-processing end-effector trajectories...')
-sim_data['P_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, 3))
+sim_data['P_EE_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, 3))
+sim_data['V_EE_pred'] = np.zeros((sim_data['N_plan'], config['N_h']+1, 3))
 for node_id in range(config['N_h']+1):
-  sim_data['P_pred'][:, node_id, :] = pin_utils.get_p(sim_data['X_pred'][:, node_id, :nq], robot.model, id_ee) - np.array([sim_data['p_ref']]*sim_data['N_plan'])
-sim_data['P_mea'] = pin_utils.get_p(sim_data['X_mea'][:,:nq], robot.model, id_ee)
-q_des = np.vstack([sim_data['X_mea'][0,:nq], sim_data['X_pred'][:,1,:nq]])
-sim_data['P_des'] = pin_utils.get_p(q_des, robot.model, id_ee)
+  sim_data['P_EE_pred'][:, node_id, :] = pin_utils.get_p(sim_data['X_pred'][:, node_id, :nq], robot.model, id_ee) - np.array([sim_data['p_ref']]*sim_data['N_plan'])
+  sim_data['V_EE_pred'][:, node_id, :] = pin_utils.get_v(sim_data['X_pred'][:, node_id, :nq], sim_data['X_pred'][:, node_id, nv:], robot.model, id_ee)
+sim_data['P_EE_mea'] = pin_utils.get_p(sim_data['X_mea'][:,:nq], robot.model, id_ee)
+sim_data['V_EE_mea'] = pin_utils.get_v(sim_data['X_mea'][:,:nq], sim_data['X_mea'][:,nv:], robot.model, id_ee)
+
 
 # # # # # # # # # # #
 # PLOT SIM RESULTS  #
 # # # # # # # # # # #
 save_dir = '/home/skleff/misc_repos/arm/results'
-save_name = 'horizon='+str(N_h)
+save_name = 'horizon='+str(N_h)+'_2'
 # Extract plot data from sim data
 plot_data = plot_utils.extract_plot_data(sim_data)
 # Plot results
 plot_utils.plot_mpc_results(plot_data, which_plots=['x','u','p'],
                               PLOT_PREDICTIONS=True, 
-                              pred_plot_sampling=10, #int(plan_freq/500),
+                              pred_plot_sampling=50, #int(plan_freq/500),
                               SAVE=True,
                               SAVE_DIR=save_dir,
                               SAVE_NAME=save_name,

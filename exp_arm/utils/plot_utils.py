@@ -294,24 +294,12 @@ def extract_plot_data_from_sim_data(sim_data):
     # measured state
     plot_data['q_mea'] = sim_data['X_mea'][:,:nq]
     plot_data['v_mea'] = sim_data['X_mea'][:,nv:]
-    # desired state (append 1st state at start) 
-    #  Careful !!! Need to scale prediction because dt_plan != dt_OCP
-    dt_ocp = sim_data['dt']                               
-    scaling_plan = sim_data['dt_plan'] / dt_ocp
-    plot_data['q_des'] = np.zeros((sim_data['N_plan']+1, nx))     
-    plot_data['q_des'] = np.zeros((sim_data['N_plan']+1, nx))    
-    plot_data['q_des'][0,:] = sim_data['X_mea'][0,:nq] 
-    plot_data['v_des'][0,:] = sim_data['X_mea'][0,nv:]
-    for i in range(sim_data['N_plan']):
-        x_mea = sim_data['X_mea'][i,:]
-        x_des_OCP = sim_data['X_pred'][i,1,:]
-        x_des_MPC =  x_mea + scaling_plan*(x_des_OCP - x_mea)
-        plot_data['q_des'][i+1,:] = x_des_MPC[:nq]
-        plot_data['v_des'][i+1,:] =x_des_MPC[nv:]
     # end-eff position
-    plot_data['p_mea'] = sim_data['P_mea']
-    plot_data['p_pred'] = sim_data['P_pred']
-    plot_data['p_des'] = sim_data['P_des'] 
+    plot_data['p_ee_mea'] = sim_data['P_EE_mea']
+    plot_data['p_ee_pred'] = sim_data['P_EE_pred']
+    plot_data['v_ee_mea'] = sim_data['V_EE_mea']
+    plot_data['v_ee_pred'] = sim_data['V_EE_pred']
+    # plot_data['p_des'] = sim_data['P_des'] 
     # control
     plot_data['u_pred'] = sim_data['U_pred']
     plot_data['u_des'] = sim_data['U_pred'][:,0,:]
@@ -403,16 +391,16 @@ def plot_mpc_state(plot_data, PLOT_PREDICTIONS=False,
                 ax_x[i,1].scatter(tspan_x_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys) #c='black',
 
         # Joint position
-        ax_x[i,0].plot(t_span_plan_x, plot_data['q_des'][:,i], 'b-',  marker='o', label='Desired')
-        ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea'][:,i], 'r-', label='Measured ', linewidth=1, alpha=0.3)
+        # ax_x[i,0].plot(t_span_plan_x, plot_data['q_des'][:,i], 'b-',  marker='o', label='Desired')
+        ax_x[i,0].plot(t_span_simu_x, plot_data['q_mea'][:,i], 'r-', label='Measured ', linewidth=1.5, alpha=0.5)
         ax_x[i,0].set_ylabel('$q_{}$'.format(i), fontsize=12)
         ax_x[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_x[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
         ax_x[i,0].grid(True)
         
         # Joint velocity 
-        ax_x[i,1].plot(t_span_plan_x, plot_data['v_des'][:,i], 'b-',  marker='o', label='Desired')
-        ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea'][:,i], 'r-', label='Measured ', linewidth=1, alpha=0.3)
+        # ax_x[i,1].plot(t_span_plan_x, plot_data['v_des'][:,i], 'b-',  marker='o', label='Desired')
+        ax_x[i,1].plot(t_span_simu_x, plot_data['v_mea'][:,i], 'r-', label='Measured ', linewidth=1.5, alpha=0.5)
         ax_x[i,1].set_ylabel('$v_{}$'.format(i), fontsize=12)
         ax_x[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
         ax_x[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.2e'))
@@ -569,48 +557,12 @@ def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False,
     t_span_simu_x = np.linspace(0, T_tot, N_simu+1)
     t_span_ctrl_x = np.linspace(0, T_tot, N_ctrl+1)
     t_span_plan_x = np.linspace(0, T_tot, N_plan+1)
-    fig_p, ax_p = plt.subplots(3,1, figsize=(19.2,10.8), sharex='col') 
-    # Plot endeff
-    # x
-    ax_p[0].plot(t_span_plan_x, plot_data['p_des'][:,0]-p_ref[0], 'b-', label='p_des - p_ref', alpha=0.5)
-    ax_p[0].plot(t_span_simu_x, plot_data['p_mea'][:,0]-[p_ref[0]]*(N_simu+1), 'r-', label='p_mea - p_ref ', linewidth=1, alpha=0.3)
-    ax_p[0].set_title('x-position-ERROR')
-    ax_p[0].set_ylabel('x (m)', fontsize=16)
-    ax_p[0].yaxis.set_major_locator(plt.MaxNLocator(2))
-    ax_p[0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
-    ax_p[0].grid(True)
-    # y
-    ax_p[1].plot(t_span_plan_x, plot_data['p_des'][:,1]-p_ref[1], 'b-', label='py_des - py_ref', alpha=0.5)
-    ax_p[1].plot(t_span_simu_x, plot_data['p_mea'][:,1]-[p_ref[1]]*(N_simu+1), 'r-', label='py_mea - py_ref ', linewidth=1, alpha=0.3)
-    ax_p[1].set_title('y-position-ERROR')
-    ax_p[1].set_ylabel('y (m)', fontsize=16)
-    ax_p[1].yaxis.set_major_locator(plt.MaxNLocator(2))
-    ax_p[1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
-    ax_p[1].grid(True)
-    # z
-    ax_p[2].plot(t_span_plan_x, plot_data['p_des'][:,2]-p_ref[2], 'b-', label='pz_des - pz_ref', alpha=0.5)
-    ax_p[2].plot(t_span_simu_x, plot_data['p_mea'][:,2]-[p_ref[2]]*(N_simu+1), 'r-', label='pz_mea - pz_ref', linewidth=1, alpha=0.3)
-    ax_p[2].set_title('z-position-ERROR')
-    ax_p[2].set_ylabel('z (m)', fontsize=16)
-    ax_p[2].yaxis.set_major_locator(plt.MaxNLocator(2))
-    ax_p[2].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
-    ax_p[2].set_xlabel('t (s)', fontsize=16)
-    ax_p[2].grid(True)
-    # Add frame ref if any
-    ax_p[0].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'g-.', linewidth=2., label='err=0', alpha=0.5)
-    ax_p[1].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'g-.', linewidth=2., label='err=0', alpha=0.5)
-    ax_p[2].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'g-.', linewidth=2., label='err=0', alpha=0.5)
-    # Set ylim if any
-    if(AUTOSCALE):
-        ax_p_ylim = np.max(np.abs(plot_data['p_mea']-plot_data['p_ref']))
-        ax_p[0].set_ylim(-ax_p_ylim, ax_p_ylim) 
-        ax_p[1].set_ylim(-ax_p_ylim, ax_p_ylim) 
-        ax_p[2].set_ylim(-ax_p_ylim, ax_p_ylim) 
-
+    fig_p, ax_p = plt.subplots(3,2, figsize=(19.2,10.8), sharex='col') 
     if(PLOT_PREDICTIONS):
         # For each component (x,y,z)
         for i in range(3):
-            p_pred_i = plot_data['p_pred'][:, :, i]
+            p_pred_i = plot_data['p_ee_pred'][:, :, i]
+            v_pred_i = plot_data['v_ee_pred'][:, :, i]
             # For each planning step in the trajectory
             for j in range(0, N_plan, pred_plot_sampling):
                 # Receding horizon = [j,j+N_h]
@@ -618,23 +570,70 @@ def plot_mpc_endeff(plot_data, PLOT_PREDICTIONS=False,
                 tspan_x_pred = np.linspace(t0_horizon, t0_horizon + T_h, N_h+1)
                 # Set up lists of (x,y) points for predicted positions
                 points_p = np.array([tspan_x_pred, p_pred_i[j,:]]).transpose().reshape(-1,1,2)
+                points_v = np.array([tspan_x_pred, v_pred_i[j,:]]).transpose().reshape(-1,1,2)
                 # Set up lists of segments
                 segs_p = np.concatenate([points_p[:-1], points_p[1:]], axis=1)
+                segs_v = np.concatenate([points_v[:-1], points_v[1:]], axis=1)
                 # Make collections segments
                 cm = plt.get_cmap('Greys_r') 
                 lc_p = LineCollection(segs_p, cmap=cm, zorder=-1)
                 lc_p.set_array(tspan_x_pred)
+                lc_v = LineCollection(segs_v, cmap=cm, zorder=-1)
+                lc_v.set_array(tspan_x_pred)
                 # Customize
                 lc_p.set_linestyle('-')
                 lc_p.set_linewidth(1)
+                lc_v.set_linestyle('-')
+                lc_v.set_linewidth(1)
                 # Plot collections
-                ax_p[i].add_collection(lc_p)
+                ax_p[i,0].add_collection(lc_p)
+                ax_p[i,1].add_collection(lc_v)
                 # Scatter to highlight points
                 colors = np.r_[np.linspace(0.1, 1, N_h), 1] 
                 my_colors = cm(colors)
-                ax_p[i].scatter(tspan_x_pred, p_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+                ax_p[i,0].scatter(tspan_x_pred, p_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+                ax_p[i,1].scatter(tspan_x_pred, v_pred_i[j,:], s=10, zorder=1, c=my_colors, cmap=matplotlib.cm.Greys)
+    # Plot endeff
+    # x
+    # v_EE_des = utils.pin_utils.get_v(plot_data['p_des'], plot_data['p_des'], ddp_data['pin_model'], ddp_data['frame_id'])
+    # ax_p[0].plot(t_span_plan_x, plot_data['p_des'][:,0]-p_ref[0], 'b-', label='p_des - p_ref', alpha=0.5)
+    xyz = ['x', 'y', 'z']
+    for i in range(3):
+        ax_p[i,0].plot(t_span_simu_x, plot_data['p_ee_mea'][:,i]-[p_ref[i]]*(N_simu+1), 'r-', label='p_ee_mea - p_ref ', linewidth=1.5, alpha=0.5)
+        # ax_p[i,0].set_title('x-position-ERROR')
+        ax_p[i,0].set_ylabel('$P^{EE}_%s$ (m)'%xyz[i], fontsize=16)
+        ax_p[i,0].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_p[i,0].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_p[i,0].grid(True)
+        # Add frame ref if any
+        ax_p[i,0].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'g-.', linewidth=2., alpha=0.7)
+        ax_p[i,0].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'g-.', linewidth=2., alpha=0.7)
+        ax_p[i,0].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'g-.', linewidth=2., alpha=0.7)
 
-    handles_p, labels_p = ax_p[0].get_legend_handles_labels()
+        ax_p[i,1].plot(t_span_simu_x, plot_data['v_ee_mea'][:,i], 'r-', label='v_ee_mea', linewidth=1.5, alpha=0.5)
+        # ax_p[i,1].set_title('x-position-ERROR')
+        ax_p[i,1].set_ylabel('$V^{EE}_%s$ (m)'%xyz[i], fontsize=16)
+        ax_p[i,1].yaxis.set_major_locator(plt.MaxNLocator(2))
+        ax_p[i,1].yaxis.set_major_formatter(plt.FormatStrFormatter('%.3e'))
+        ax_p[i,1].grid(True)
+        # Add frame ref if any
+        ax_p[i,1].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'g-.', linewidth=2., alpha=0.7)
+        ax_p[i,1].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'g-.', linewidth=2., alpha=0.7)
+        ax_p[i,1].plot(t_span_ctrl_x, [0.]*(N_ctrl+1), 'g-.', linewidth=2., alpha=0.7)
+
+        ax_p[-1,0].set_xlabel('Time (s)', fontsize=16)
+        ax_p[-1,1].set_xlabel('Time (s)', fontsize=16)
+        fig_p.align_ylabels(ax_p[:,0])
+        fig_p.align_ylabels(ax_p[:,1])
+
+    # Set ylim if any
+    # if(AUTOSCALE):
+    #     ax_p_ylim = np.max(np.abs(plot_data['p_ee_mea']-plot_data['p_ref']))
+    #     ax_p[0].set_ylim(-ax_p_ylim, ax_p_ylim) 
+    #     ax_p[1].set_ylim(-ax_p_ylim, ax_p_ylim) 
+    #     ax_p[2].set_ylim(-ax_p_ylim, ax_p_ylim) 
+
+    handles_p, labels_p = ax_p[0,0].get_legend_handles_labels()
     fig_p.legend(handles_p, labels_p, loc='upper right', prop={'size': 16})
 
     # Titles

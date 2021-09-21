@@ -4,7 +4,7 @@
 simu_freq: 1000
 ctrl_freq: 250   # Control frequency
 plan_freq: 250     # Planning frequency
-T_tot: 5.         # Simu duration (s)
+T_tot: 10.        # Simu duration (s)
 INIT_LOG: True
 SAVE_DATA: True
 init_log_display_time: 1
