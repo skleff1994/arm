@@ -71,7 +71,7 @@ DDPS_DATA = [test_trained_single(path, x0=x, PLOT=False, logs=False) for x in sa
 fig, ax = plot_utils.plot_ddp_results(DDPS_DATA, SHOW=False, sampling_plot=1)
 plot_utils.plot_refs(fig, ax, config)
 # remove legent p
-ax['p'].get_legend().remove()
+# ax['p'].get_legend().remove()
 
 def animate(data, sleep=dt):
     M_des = robot.data.oMf[id_ee].copy()
