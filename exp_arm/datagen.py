@@ -35,16 +35,22 @@ def tensorize(arrays):
 
 
 # Sampling from conservative range of state space
-def samples_uniform(nb_samples:int):
+def samples_uniform(nb_samples:int, eps_q=0.9, eps_v=0.01):
     '''
     Samples initial states x = (q,v) within conservative state range
     '''
+    print("Sampling "+str(nb_samples)+" states...")
     samples = []
-    q_max = 0.9*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
-    v_max = 0.01*np.zeros(nv) 
+    q_des, _, _ = pin_utils.IK_position(robot, q0, id_endeff, config['p_des'])
+    q_lim = np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
+    q_min = np.maximum(q_des - eps_q*np.ones(nq), -q_lim) #0.9*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
+    q_max = np.minimum(q_des + eps_q*np.ones(nq), +q_lim) #0.9*np.array([2.9671, 2.0944, 2.9671, 2.0944, 2.9671, 2.0944, 3.0543])
+    v_min = np.zeros(nv) - eps_v*np.ones(nv) 
+    v_max = np.zeros(nv) + eps_v*np.ones(nv) 
+    x_min = np.concatenate([q_min, v_min])   
     x_max = np.concatenate([q_max, v_max])   
     for i in range(nb_samples):
-        samples.append( np.random.uniform(low=-x_max, high=+x_max, size=(nx,)))
+        samples.append( np.random.uniform(low=x_min, high=+x_max, size=(nx,)))
     return np.array(samples)
 
 # Sampling from conservative range of task space
@@ -122,11 +128,29 @@ def samples_uniform_IK_adaptive(nb_samples:int, q0=q0,
             JNT_SPACE_SAMPLES.append( x )
     return JNT_SPACE_SAMPLES
 
+# Sampling from conservative range of task space + joint space
+def samples_uniform_mixed_adaptive(nb_samples:int, q0=q0, 
+                                   p_des=config['p_des'], 
+                                   v_des=config['v_des'], 
+                                   id_endeff=id_endeff, 
+                                   eps_p_ee=[0.05, 0.15, 0.25], eps_v_ee=[0.005, 0.01, 0.015],
+                                   eps_q=0.9, eps_v=0.01):
+    '''
+    Sample task space (EE pos and vel) and apply IK 
+    in order to get corresponding joint space samples
+    use 3 boxes in task space + 1 box in joint space
+    '''
+    # Sample several states 
+    N_SAMPLES = nb_samples
+    JNT_SPACE_SAMPLES = samples_uniform_IK_adaptive(3*N_SAMPLES//4, q0, p_des, v_des, id_endeff, eps_p_ee, eps_v_ee)
+    JNT_SPACE_SAMPLES.extend( samples_uniform(N_SAMPLES//4, eps_q, eps_v) )
+    return JNT_SPACE_SAMPLES
 
-def create_train_data(critic=None,horizon=200,nb_samples=300):
+
+def create_train_data(critic=None,horizon=200,nb_samples=400):
     
 
-    points  =   samples_uniform_IK_adaptive(nb_samples=nb_samples + 1000)
+    points  =   samples_uniform_mixed_adaptive(nb_samples=nb_samples + 1000)
     np.random.shuffle(points)
     
     x0s     =   []
@@ -201,7 +225,7 @@ def create_train_data(critic=None,horizon=200,nb_samples=300):
 
     return [x0s, v, vx]
 
-def make_training_dataloader(critic=None,horizon=200,nb_samples=300):
+def make_training_dataloader(critic=None,horizon=200,nb_samples=400):
     """
     TO be used specifically in training
     """

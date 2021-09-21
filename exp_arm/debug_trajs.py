@@ -4,14 +4,13 @@ import torch
 np.set_printoptions(precision=4, linewidth=180)
 import matplotlib.pyplot as plt
 import os
-from robot_properties_kuka.config import IiwaConfig
+from pinocchio.robot_wrapper import RobotWrapper
 from utils import path_utils
 
 
 config = path_utils.load_config_file('static_reaching_task_ocp2')
-robot = IiwaConfig.buildRobotWrapper()
+robot = RobotWrapper.BuildFromURDF(path_utils.kuka_urdf_path(), path_utils.kuka_mesh_path())
 nq=robot.model.nq; nv=robot.model.nv; nu=nq; nx=nq+nv
-
 x0 = np.array([ 0.6934,  0.935 ,  1.3379, -0.9354,  1.5454,  1.8671,  2.0287,  0.    ,  0.    ,  0.    ,  0.    ,  0.    ,  0.    ,  0.    ])
 q0 = x0[:nq]
 v0 = x0[nv:]
@@ -105,6 +104,8 @@ d3 = plot_utils.extract_ddp_data(ddp3)
 # Plot stuff
 fig, ax = plot_utils.plot_ddp_results([d1, d2, d3], labels=[label1, label2, label3], SHOW=False, marker='o', sampling_plot=1)
 plot_utils.plot_refs(fig, ax, config, SHOW=True)
+
+
 
 # DDPS_DATA, samples = test_trained_multiple(path, N=10, PLOT=False)
 # viewer = robot.viz.viewer
