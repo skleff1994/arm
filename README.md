@@ -26,6 +26,6 @@ The directory `config/robot_properties_kuka` contains URDF and meshes informatio
 # Acknowledgements
 You can find more information on this algorithm in this paper :
 
-Parag, A., Kleff, S., Saci, L., Mansard, N., & Stasse, O. Value learning from trajectory optimization and Sobolev descent : A step toward reinforcement learning with superlinear convergence properties, _International Conference on Robotics and Automation (ICRA) 2022_ [submitted] 
+Parag, A., Kleff, S., Saci, L., Mansard, N., & Stasse, O. Value learning from trajectory optimization and Sobolev descent : A step toward reinforcement learning with superlinear convergence properties, _International Conference on Robotics and Automation (ICRA) 2022_ [accepted] 
 
 
