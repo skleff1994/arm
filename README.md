@@ -1,3 +1,5 @@
+moved to https://github.com/amitparag/Kuka-arm-DvP
+
 # What is it ?
 Code for Differential Value Programming (DVP) implementation and example on the KUKA LBR IIWA 14 manipulator. 
 
